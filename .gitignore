@@ -1,2 +1,14 @@
-_build/
+*.pyc
+.coverage
+
+tests/**/*_credentials.py
+
+*.egg-info/
+.cache/
+.eggs/
+.tox/
+
+build/
+dist/
+docs/_build/
 venv/
