@@ -64,7 +64,7 @@ author = u'Spencer Mitchell'
 VER_RE = "__version__ = [\"'](?P<Version>(?:(?![\"']).)*)"
 with open(os.path.abspath('../cuttlepool/__init__.py'), 'r') as f:
     init_file = f.read()
-    release_version = re.search(VER_RE, init_file.group('Version'))
+    release_version = re.search(VER_RE, init_file).group('Version')
 
 # The short X.Y version.
 version = u'{}'.format('.'.join(release_version.split('.')[:2]))
