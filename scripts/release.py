@@ -16,7 +16,7 @@ def check_git_is_clean():
 
 
 def bump_release_version():
-    with open(os.path.join(os.getcwd(), 'cuttle/__init__.py')) as f:
+    with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py')) as f:
         init_file = f.read()
         version = re.search(VER_RE, init_file).group('Version')
         if 'dev' not in version:
@@ -26,7 +26,7 @@ def bump_release_version():
 
     init_file = init_file.replace(version, release_version)
 
-    with open(os.path.join(os.getcwd(), 'cuttle/__init__.py'), 'w') as f:
+    with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py'), 'w') as f:
         f.write(init_file)
 
     print 'Bumping version from {} to {}'.format(version, release_version)
@@ -86,14 +86,14 @@ def git_tag(version):
 def upload_pypi(version):
     subprocess.Popen(('. venv/bin/activate && '
                       'python setup.py sdist bdist_wheel && '
-                      'twine upload dist/cuttle-{}*').format(version),
+                      'twine upload dist/cuttlepool-{}*').format(version),
                      shell=True).wait()
     print 'Uploaded to PyPI'
     print '----------------\n'
 
 
 def bump_dev_version():
-    with open(os.path.join(os.getcwd(), 'cuttle/__init__.py')) as f:
+    with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py')) as f:
         init_file = f.read()
         version = re.search(VER_RE, init_file).group('Version')
         dev_version = version.split('.')
@@ -103,7 +103,7 @@ def bump_dev_version():
 
     init_file = init_file.replace(version, dev_version)
 
-    with open(os.path.join(os.getcwd(), 'cuttle/__init__.py'), 'w') as f:
+    with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py'), 'w') as f:
         f.write(init_file)
 
     return dev_version
@@ -138,7 +138,7 @@ def main():
 
     tidy_changelog()
 
-    msg = 'prepare Cuttle for {} release'.format(version)
+    msg = 'prepare Cuttle Pool for {} release'.format(version)
     commit_dev(msg)
 
     subprocess.Popen('git checkout master', shell=True).wait()
@@ -155,7 +155,7 @@ def main():
 
     unreleased_changelog(version, '.'.join(dev_version.split('.')[:-1]))
 
-    msg = 'prepare Cuttle for {} development cycle'.format(dev_version)
+    msg = 'prepare Cuttle Pool for {} development cycle'.format(dev_version)
     commit_dev(msg)
 
 
