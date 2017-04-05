@@ -113,24 +113,19 @@ class PoolConnection(object):
 
     :param connection: A connection object.
     :param pool: A connection pool.
-    :param **kwargs: The connection arguments used by the connection object.
 
     :raises AttributeError: If improper connection object or improper pool
                             object.
     """
 
-    def __init__(self, connection, pool, **kwargs):
-        if not isinstance(connection, pymysql.connections.Connection):
-            raise AttributeError('improper connection object')
+    def __init__(self, connection, pool):
         if not isinstance(pool, CuttlePool):
             raise AttributeError('improper pool object')
+        if not isinstance(connection, pymysql.connections.Connection):
+            raise AttributeError('improper connection object')
 
         self._connection = connection
         self._pool = pool
-        self._connection_arguments = kwargs
-
-    def __del__(self):
-        self.close()
 
     def __getattr__(self, attr):
         """
