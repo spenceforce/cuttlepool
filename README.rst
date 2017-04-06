@@ -80,8 +80,30 @@ What SQL implementations does Cuttle Pool support?
 Right now just MySQL using the PyMySQL driver, but this will change in future
 versions of Cuttle Pool.
 
+Contributing
+------------
+
+It's highly recommended to develop in a virtualenv.
+
+Clone the repository::
+
+  git clone https://github.com/smitchell556/cuttlepool.git
+
+Install the package in editable mode::
+
+  cd cuttlepool
+  pip install -e .
+
+Now you're set. See the next section for running tests.
+
+Please work off the ``develop`` branch. Better yet, create a new branch from
+``develop`` and merge it back into ``develop`` when functional and passing
+tests.
+
 Running the tests
 -----------------
+
+To run the tests, tox will need to be installed with ``pip install tox``.
 
 Tests can be run using tox with the command ``tox <sql>`` to run tests that
 require a connection to a database, where ``<sql>`` is the specific
@@ -92,8 +114,6 @@ variables in the corresponding test directory, where ``<sql>`` is the specific
 implementation desired for testing. For example, to run ``tox mysql``,
 ``USER`` and ``PASSWD`` variables must be placed in a file called
 ``mysql_credentials.py`` under the ``tests/mysql/`` directory.
-
-.. contributing
 
 Where can I get help?
 ---------------------
