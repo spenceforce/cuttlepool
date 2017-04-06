@@ -47,18 +47,39 @@ class CuttlePoolMakeConnectionTestCase(CuttlePoolTestCase):
         self.assertEqual(1, self.cp._size)
 
 
+class CuttlePoolCollectLostConnectionsTestCase(CuttlePoolTestCase):
+
+    def test_cuttlepool_collect_lost_connections(self):
+        # create connection
+        con = self.cp.get_connection()
+        con_id = id(con._connection)
+
+        # lose connection to the ether
+        con._connection = None
+
+        # return connection to pool
+        self.assertEqual(0, self.cp._pool.qsize())
+        self.cp._collect_lost_connections()
+        self.assertEqual(1, self.cp._pool.qsize())
+
+        # get connection from pool and check for equality
+        con = self.cp.get_connection()
+        self.assertEqual(con_id, id(con._connection))
+
+
 class CuttlePoolCloseConnectionsTestCase(CuttlePoolTestCase):
 
     def test_cuttlepool_close_connections(self):
-        con = pymysql.connect(**credentials)
-        self.cp._pool.put(con)
+        con = self.cp.get_connection()
+        con_ref = con._connection
+        con.close()
 
         self.assertEqual(self.cp._pool.qsize(), 1)
-        self.assertTrue(con.open)
+        self.assertTrue(con_ref.open)
 
         self.cp._close_connections()
         self.assertEqual(self.cp._pool.qsize(), 0)
-        self.assertFalse(con.open)
+        self.assertFalse(con_ref.open)
 
 
 class CuttlePoolGetConnection(CuttlePoolTestCase):
@@ -109,7 +130,7 @@ class CuttlePoolPutConnection(CuttlePoolTestCase):
     def test_cuttlepool_put_connection(self):
         self.assertEqual(0, self.cp._pool.qsize())
 
-        self.cp.put_connection(pymysql.connect(**credentials))
+        self.cp.put_connection(self.cp._make_connection())
 
         self.assertEqual(1, self.cp._pool.qsize())
 
