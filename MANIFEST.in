@@ -1,8 +1,5 @@
 include README.rst LICENSE CHANGELOG.rst
 
 graft tests
-graft docs
 
 global-exclude *.pyc
-
-prune docs/_build

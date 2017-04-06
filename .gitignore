@@ -10,5 +10,4 @@ tests/**/*_credentials.py
 
 build/
 dist/
-docs/_build/
 venv/
