@@ -8,3 +8,5 @@ Version 0.1.0
 -------------
 
 Minor release, unreleased
+
+Initial release.
