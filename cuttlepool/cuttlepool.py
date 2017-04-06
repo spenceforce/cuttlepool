@@ -40,10 +40,14 @@ class CuttlePool(object):
             raise ValueError('pool overflow must be non negative')
 
         self._connection_arguments = kwargs
+        self._connection_arguments['cursorclass'] = self._connection_arguments.get(
+            'cursorclass', pymysql.cursors.Cursor)
+
         self._capacity = capacity
         self._overflow = overflow
         self._timeout = timeout
         self._maxsize = self._capacity + self._overflow
+
         self._pool = queue.Queue(self._capacity)
         self._reference_pool = []
 
@@ -139,7 +143,11 @@ class CuttlePool(object):
                                  'by pool')
 
             try:
+                connection.cursorclass = self._connection_arguments[
+                    'cursorclass']
+
                 self._pool.put_nowait(connection)
+
             except queue.Full:
                 self._reference_pool.remove(connection)
                 connection.close()

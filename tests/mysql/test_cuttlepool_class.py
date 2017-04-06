@@ -152,6 +152,25 @@ class CuttlePoolPutConnection(CuttlePoolTestCase):
         self.assertTrue(con.open)
         self.assertFalse(con2.open)
 
+    def test_cuttlepool_put_connection_revert_cursorclass(self):
+        con = self.cp._make_connection()
+        con_id = id(con)
+
+        new_cursorclass = pymysql.cursors.DictCursor
+
+        # set con cursorclass to different cursor
+        con.cursorclass = new_cursorclass
+
+        # return to pool
+        self.cp.put_connection(con)
+
+        # check cursorclass changed to default
+        self.assertEqual(con_id, id(self.cp._reference_pool[0]))
+        self.assertNotEqual(self.cp._reference_pool[0].cursorclass,
+                            new_cursorclass)
+        self.assertEqual(self.cp._reference_pool[0].cursorclass,
+                         self.cp._connection_arguments['cursorclass'])
+
     def test_cuttlepool_put_connection_wrong_arg(self):
         with self.assertRaises(ValueError):
             self.cp.put_connection(1)
