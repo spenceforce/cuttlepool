@@ -89,6 +89,14 @@ class CuttlePool(object):
                 except:
                     pass
 
+            while not self._pool.empty():
+                try:
+                    self._pool.get_nowait()
+                except queue.Empty:
+                    break
+
+            self._reference_pool = []
+
     def get_connection(self):
         """
         Returns a ``PoolConnection`` object.
