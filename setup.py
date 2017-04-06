@@ -15,7 +15,7 @@ with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py'), 'r') as f:
 with codecs.open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
-setup(name='cuttle',
+setup(name='cuttlepool',
       # uses semantic versioning scheme
       version=version,
       description='A SQL pool implementation',
