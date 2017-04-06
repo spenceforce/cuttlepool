@@ -8,6 +8,8 @@ try:
     import queue
 except ImportError:
     import Queue as queue
+import sys
+import threading
 
 import pymysql.connections
 import pymysql.cursors
@@ -41,32 +43,51 @@ class CuttlePool(object):
         self._capacity = capacity
         self._overflow = overflow
         self._timeout = timeout
-        self._size = 0
         self._maxsize = self._capacity + self._overflow
         self._pool = queue.Queue(self._capacity)
+        self._reference_pool = []
 
     def __del__(self):
         self._close_connections()
+
+    @property
+    def _size(self):
+        return len(self._reference_pool)
 
     def _make_connection(self):
         """
         Returns a connection object.
         """
         connection = pymysql.connect(**self._connection_arguments)
-        self._size += 1
+        self._reference_pool.append(connection)
 
         return connection
+
+    def _collect_lost_connections(self):
+        """
+        Returns lost connections to pool.
+        """
+        # A connection should be referenced by 3 things at any given time, the
+        # _reference_pool, a PoolConnection or the _pool, and sys.getrefcount
+        # (it's referenced by sys.getrefcount when sys.getrefcount is called).
+        # If the refcount is 3 this means it's only referenced by
+        # _reference_pool and sys.getrefcount and should be returned to the
+        # pool.
+        with threading.RLock():
+            for idx in range(self._size):
+                if sys.getrefcount(self._reference_pool[idx]) < 3:
+                    self.put_connection(self._reference_pool[idx])
 
     def _close_connections(self):
         """
         Closes all connections in the pool.
         """
-        while not self._pool.empty():
-            try:
-                connection = self._pool.get_nowait()
-                connection.close()
-            except queue.Empty:
-                break
+        with threading.RLock():
+            for con in self._reference_pool:
+                try:
+                    con.close()
+                except:
+                    pass
 
     def get_connection(self):
         """
@@ -74,20 +95,24 @@ class CuttlePool(object):
 
         :raises AttributeError: If attempt to get connection times out.
         """
-        try:
-            connection = self._pool.get_nowait()
-            connection.ping()
-        except:
-            if self._size < self._maxsize:
-                connection = self._make_connection()
-            else:
-                try:
-                    connection = self._pool.get(timeout=self._timeout)
-                except queue.Empty:
-                    raise AttributeError('could not get connection, the pool '
-                                         'is depleted')
+        with threading.RLock():
+            if self._pool.empty():
+                self._collect_lost_connections()
 
-        return PoolConnection(connection, self, **self._connection_arguments)
+            try:
+                connection = self._pool.get_nowait()
+                connection.ping()
+            except:
+                if self._size < self._maxsize:
+                    connection = self._make_connection()
+                else:
+                    try:
+                        connection = self._pool.get(timeout=self._timeout)
+                    except queue.Empty:
+                        raise AttributeError('could not get connection, the '
+                                             'pool is depleted')
+
+            return PoolConnection(connection, self)
 
     def put_connection(self, connection):
         """
@@ -97,14 +122,19 @@ class CuttlePool(object):
 
         :raises ValueError: If improper connection object.
         """
-        if not isinstance(connection, pymysql.connections.Connection):
-            raise ValueError('improper connection object')
+        with threading.RLock():
+            if not isinstance(connection, pymysql.connections.Connection):
+                raise ValueError('improper connection object')
 
-        try:
-            self._pool.put_nowait(connection)
-        except queue.Full:
-            connection.close()
-            self._size -= 1
+            if connection not in self._reference_pool:
+                raise ValueError('connection returned to pool was not created '
+                                 'by pool')
+
+            try:
+                self._pool.put_nowait(connection)
+            except queue.Full:
+                self._reference_pool.remove(connection)
+                connection.close()
 
 
 class PoolConnection(object):
