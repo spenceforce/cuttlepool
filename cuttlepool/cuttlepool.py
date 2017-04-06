@@ -169,7 +169,8 @@ class PoolConnection(object):
         """
         Gets attributes of connection object.
         """
-        return getattr(self._connection, attr)
+        if attr != 'close':
+            return getattr(self._connection, attr)
 
     def close(self):
         """
