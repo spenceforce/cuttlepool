@@ -70,7 +70,7 @@ class CuttlePool(object):
         # A connection should be referenced by 3 things at any given time, the
         # _reference_pool, a PoolConnection or the _pool, and sys.getrefcount
         # (it's referenced by sys.getrefcount when sys.getrefcount is called).
-        # If the refcount is 3 this means it's only referenced by
+        # If the refcount is less than 3 this means it's only referenced by
         # _reference_pool and sys.getrefcount and should be returned to the
         # pool.
         with threading.RLock():
