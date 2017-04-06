@@ -94,5 +94,5 @@ Where can I get help?
 ---------------------
 
 If you haven't read the How-to guide above, please do that first. Otherwise,
-check the `issue tracker<https://github.com/smitchell556/cuttlepool/issues>`_.
+check the `issue tracker <https://github.com/smitchell556/cuttlepool/issues>`_.
 Your issue may be addressed there and if it isn't please file an issue :)
