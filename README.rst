@@ -20,7 +20,7 @@ Connection queuing
    to the pool before raising an exception.
 
 The intent of Cuttle Pool is to provide a pool implementation for
-`Cuttle<https://github.com/smitchell556/cuttle>`_, but it can be used as a
+`Cuttle <https://github.com/smitchell556/cuttle>`_, but it can be used as a
 standalone connection pool.
 
 How-to Guide
