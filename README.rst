@@ -69,6 +69,11 @@ the connection, it returns it to the pool.
 FAQ
 ===
 
+How do I install it?
+--------------------
+
+``pip install cuttlepool``
+
 What SQL implementations does Cuttle Pool support?
 --------------------------------------------------
 

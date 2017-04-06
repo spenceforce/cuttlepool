@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-
 Cuttle Pool class.
 
+:license: MIT, see LICENSE for details.
 """
 try:
     import queue

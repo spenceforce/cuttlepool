@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-
 Cuttle Pool, a SQL pool implementation.
 
+:license: MIT, see LICENSE for details.
 """
 
 
