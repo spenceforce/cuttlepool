@@ -24,7 +24,7 @@ setup(name='cuttlepool',
       author='Spencer Mitchell',
       license='MIT',
       classifiers=[
-          'Development Status :: 1 - Planning',
+          'Development Status :: 2 - Alpha',
           'Intended Audience :: Developers',
           'Topic :: Software Development :: Libraries :: Python Modules',
           'License :: OSI Approved :: MIT License',
