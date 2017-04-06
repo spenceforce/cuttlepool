@@ -142,10 +142,9 @@ class CuttlePool(object):
                 raise ValueError('connection returned to pool was not created '
                                  'by pool')
 
-            try:
-                connection.cursorclass = self._connection_arguments[
-                    'cursorclass']
+            connection.cursorclass = self._connection_arguments['cursorclass']
 
+            try:
                 self._pool.put_nowait(connection)
 
             except queue.Full:
