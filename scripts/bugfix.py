@@ -37,6 +37,14 @@ def bump_bugfix_version():
     return release_version
 
 
+def check_changelog(version):
+    with open(os.path.join(os.getcwd(), 'CHANGELOG.rst')) as f:
+        changelog = f.read()
+
+    if version not in changelog:
+        raise ValueError('Version changes not in changelog')
+
+
 def commit(msg):
     subprocess.Popen('git commit -a -m "{}"'.format(msg),
                      shell=True).wait()
@@ -67,6 +75,8 @@ def main():
     check_git_is_clean()
 
     version = bump_bugfix_version()
+
+    check_changelog(version)
 
     msg = 'prepare Cuttle Pool for {} release'.format(version)
     commit(msg)
