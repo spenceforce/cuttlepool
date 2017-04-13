@@ -110,21 +110,25 @@ class CuttlePool(object):
         :raises AttributeError: If attempt to get connection times out.
         """
         with threading.RLock():
-            if self._pool.empty():
-                self._collect_lost_connections()
-
             try:
                 connection = self._pool.get_nowait()
-                connection.ping()
             except:
                 if self._size < self._maxsize:
                     connection = self._make_connection()
                 else:
+                    self._collect_lost_connections()
+
                     try:
                         connection = self._pool.get(timeout=self._timeout)
                     except queue.Empty:
                         raise AttributeError('could not get connection, the '
                                              'pool is depleted')
+
+            try:
+                connection.ping()
+            except:
+                self._reference_pool.remove(connection)
+                connection = self._make_connection()
 
             return PoolConnection(connection, self)
 
