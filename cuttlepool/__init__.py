@@ -9,4 +9,4 @@ Cuttle Pool, a SQL pool implementation.
 __version__ = '0.2.0.dev'
 
 
-from .cuttlepool import CuttlePool
+from .cuttlepool import CuttlePool, PoolConnection, cursors

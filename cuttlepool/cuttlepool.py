@@ -11,8 +11,10 @@ except ImportError:
 import sys
 import threading
 
-import pymysql.connections
-import pymysql.cursors
+import pymysql
+
+cursors = pymysql.cursors
+Connection = pymysql.connections.Connection
 
 
 class CuttlePool(object):
@@ -41,7 +43,7 @@ class CuttlePool(object):
 
         self._connection_arguments = kwargs
         self._connection_arguments['cursorclass'] = self._connection_arguments.get(
-            'cursorclass', pymysql.cursors.Cursor)
+            'cursorclass', cursors.Cursor)
 
         self._capacity = capacity
         self._overflow = overflow
@@ -135,7 +137,7 @@ class CuttlePool(object):
         :raises ValueError: If improper connection object.
         """
         with threading.RLock():
-            if not isinstance(connection, pymysql.connections.Connection):
+            if not isinstance(connection, Connection):
                 raise ValueError('improper connection object')
 
             if connection not in self._reference_pool:
@@ -166,7 +168,7 @@ class PoolConnection(object):
     def __init__(self, connection, pool):
         if not isinstance(pool, CuttlePool):
             raise AttributeError('improper pool object')
-        if not isinstance(connection, pymysql.connections.Connection):
+        if not isinstance(connection, Connection):
             raise AttributeError('improper connection object')
 
         self._connection = connection
@@ -183,7 +185,7 @@ class PoolConnection(object):
         """
         Returns the connection to the connection pool.
         """
-        if isinstance(self._connection, pymysql.connections.Connection):
+        if isinstance(self._connection, Connection):
             self._pool.put_connection(self._connection)
             self._connection = None
             self._pool = None
