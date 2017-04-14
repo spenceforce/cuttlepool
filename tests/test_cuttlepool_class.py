@@ -5,27 +5,28 @@ Tests related to the CuttlePool class.
 import unittest
 
 import pymysql
-from cuttlepool import CuttlePool
-from cuttlepool.cuttlepool import PoolConnection
+from cuttlepool import CuttlePool, PoolConnection
 
 from mysql_credentials import USER, PASSWD
 
 DB = '_cuttlepool_test_db'
 HOST = 'localhost'
 
-credentials = dict(user=USER, passwd=PASSWD, host=HOST)
-
 
 class CuttlePoolTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.con = pymysql.connect(**credentials)
+        self.Connection = pymysql.connections.Connection
+        self.DiffCursor = pymysql.cursors.DictCursor
+        self.credentials = dict(user=USER, passwd=PASSWD, host=HOST)
+
+        self.con = pymysql.connect(**self.credentials)
         cur = self.con.cursor()
         cur.execute('CREATE DATABASE {}'.format(DB))
         cur.close()
 
         self.cp = CuttlePool(capacity=1, overflow=1, timeout=1,
-                             db=DB, **credentials)
+                             db=DB, **self.credentials)
 
     def tearDown(self):
         self.cp._close_connections()
@@ -36,50 +37,15 @@ class CuttlePoolTestCase(unittest.TestCase):
         self.con.close()
 
 
-class CuttlePoolMakeConnectionTestCase(CuttlePoolTestCase):
+class CuttlePoolInstanceTestCase(unittest.TestCase):
 
-    def test_cuttlepool_make_connection(self):
-        self.assertEqual(0, self.cp._size)
+    def test_cuttlepool_instantiate_wrong_capacity(self):
+        with self.assertRaises(ValueError):
+            CuttlePool(capacity=0)
 
-        connection = self.cp._make_connection()
-
-        self.assertTrue(isinstance(connection, pymysql.connections.Connection))
-        self.assertEqual(1, self.cp._size)
-
-
-class CuttlePoolCollectLostConnectionsTestCase(CuttlePoolTestCase):
-
-    def test_cuttlepool_collect_lost_connections(self):
-        # create connection
-        con = self.cp.get_connection()
-        con_id = id(con._connection)
-
-        # lose connection to the ether
-        con._connection = None
-
-        # return connection to pool
-        self.assertEqual(0, self.cp._pool.qsize())
-        self.cp._collect_lost_connections()
-        self.assertEqual(1, self.cp._pool.qsize())
-
-        # get connection from pool and check for equality
-        con = self.cp.get_connection()
-        self.assertEqual(con_id, id(con._connection))
-
-
-class CuttlePoolCloseConnectionsTestCase(CuttlePoolTestCase):
-
-    def test_cuttlepool_close_connections(self):
-        con = self.cp.get_connection()
-        con_ref = con._connection
-        con.close()
-
-        self.assertEqual(self.cp._pool.qsize(), 1)
-        self.assertTrue(con_ref.open)
-
-        self.cp._close_connections()
-        self.assertEqual(self.cp._pool.qsize(), 0)
-        self.assertFalse(con_ref.open)
+    def test_cuttlepool_instantiate_wrong_overflow(self):
+        with self.assertRaises(ValueError):
+            CuttlePool(overflow=-1)
 
 
 class CuttlePoolGetConnection(CuttlePoolTestCase):
@@ -88,7 +54,7 @@ class CuttlePoolGetConnection(CuttlePoolTestCase):
         con = self.cp.get_connection()
         self.assertTrue(isinstance(con, PoolConnection))
         self.assertTrue(isinstance(con._connection,
-                                   pymysql.connections.Connection))
+                                   self.Connection))
         self.assertTrue(con.open)
 
         con.close()
@@ -100,7 +66,7 @@ class CuttlePoolGetConnection(CuttlePoolTestCase):
         self.assertTrue(all(map(lambda x: isinstance(x, PoolConnection), con)))
         self.assertTrue(all(map(
             lambda x: isinstance(x._connection,
-                                 pymysql.connections.Connection),
+                                 self.Connection),
             con
         )))
         self.assertTrue(all(map(lambda x: x.open, con)))
@@ -118,6 +84,20 @@ class CuttlePoolGetConnection(CuttlePoolTestCase):
         self.assertEqual(con_id, id(con._connection))
 
         con.close()
+
+    def test_cuttlepool_get_lost_connection(self):
+        # create connections to deplete pool
+        con = self.cp.get_connection()
+        con2 = self.cp.get_connection()
+        con_id = id(con._connection)
+
+        # lose connection to the ether
+        con._connection = None
+        self.assertEqual(0, self.cp._pool.qsize())
+
+        # get connection from pool and check for equality
+        con = self.cp.get_connection()
+        self.assertEqual(con_id, id(con._connection))
 
     def test_cuttlepool_get_connection_timeout(self):
         with self.assertRaises(AttributeError):
@@ -156,7 +136,7 @@ class CuttlePoolPutConnection(CuttlePoolTestCase):
         con = self.cp._make_connection()
         con_id = id(con)
 
-        new_cursorclass = pymysql.cursors.DictCursor
+        new_cursorclass = self.DiffCursor
 
         # set con cursorclass to different cursor
         con.cursorclass = new_cursorclass
