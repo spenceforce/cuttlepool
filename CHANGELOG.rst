@@ -15,6 +15,8 @@ Minor release, unreleased
 - The connection object in ``get_connection()`` is pinged right before
   returning a ``PoolConnection`` and if the ping fails, the connection is
   replaced.
+- ``connection_arguments`` property added which returns a copy of the connection
+  arguments.
 
 Version 0.1.0
 -------------
