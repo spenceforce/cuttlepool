@@ -4,9 +4,15 @@ Cuttle Pool Changelog
 
 Here are the changes made to Cuttle Pool for each release.
 
+Version 0.2.1
+-------------
+
+- Fix classifier in ``setup.py`` which caused error during upload.
+
 Version 0.2.0
 -------------
 
+- PoolConnection and cursors module are importable from cuttlepool instead of
   cuttlepool.cuttlepool.
 - ``get_connection()`` will only search for lost connections if it can't get an
   initial connection from the pool or make a connection.
