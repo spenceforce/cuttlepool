@@ -39,18 +39,37 @@ class CuttlePoolTestCase(unittest.TestCase):
 
 class CuttlePoolInstanceTestCase(unittest.TestCase):
 
-    def test_cuttlepool_instantiate_wrong_capacity(self):
+    def test_instantiate_wrong_capacity(self):
         with self.assertRaises(ValueError):
             CuttlePool(capacity=0)
 
-    def test_cuttlepool_instantiate_wrong_overflow(self):
+    def test_instantiate_wrong_overflow(self):
         with self.assertRaises(ValueError):
             CuttlePool(overflow=-1)
 
 
+class CuttleConnectionArgumentsPropertyTestCase(CuttlePoolTestCase):
+
+    def test_connection_arguments_property(self):
+        self.assertEqual(self.cp.connection_arguments,
+                         self.cp._connection_arguments)
+
+    def test_connection_arguments_copy(self):
+        connection_arguments = self.cp.connection_arguments
+        self.assertNotEqual(id(connection_arguments),
+                            id(self.cp._connection_arguments))
+
+        connection_arguments['db'] = 'different_db'
+
+        self.assertNotEqual(connection_arguments,
+                            self.cp._connection_arguments)
+        self.assertNotEqual(connection_arguments,
+                            self.cp.connection_arguments)
+
+
 class CuttlePoolGetConnection(CuttlePoolTestCase):
 
-    def test_cuttlepool_get_connection(self):
+    def test_get_connection(self):
         con = self.cp.get_connection()
         self.assertTrue(isinstance(con, PoolConnection))
         self.assertTrue(isinstance(con._connection,
@@ -59,7 +78,7 @@ class CuttlePoolGetConnection(CuttlePoolTestCase):
 
         con.close()
 
-    def test_cuttlepool_get_max_connections(self):
+    def test_get_max_connections(self):
         con = [self.cp.get_connection() for __ in range(self.cp._maxsize)]
 
         # Ensure all connections are open
@@ -73,7 +92,7 @@ class CuttlePoolGetConnection(CuttlePoolTestCase):
 
         map(lambda x: x.close(), con)
 
-    def test_cuttlepool_get_connection_from_queue(self):
+    def test_get_connection_from_queue(self):
         con = self.cp.get_connection()
         con_id = id(con._connection)
 
@@ -85,7 +104,7 @@ class CuttlePoolGetConnection(CuttlePoolTestCase):
 
         con.close()
 
-    def test_cuttlepool_get_lost_connection(self):
+    def test_get_lost_connection(self):
         # create connections to deplete pool
         con = self.cp.get_connection()
         con2 = self.cp.get_connection()
@@ -99,7 +118,7 @@ class CuttlePoolGetConnection(CuttlePoolTestCase):
         con = self.cp.get_connection()
         self.assertEqual(con_id, id(con._connection))
 
-    def test_cuttlepool_get_connection_timeout(self):
+    def test_get_connection_timeout(self):
         with self.assertRaises(AttributeError):
             [self.cp.get_connection()
              for __ in range(self.cp._maxsize + 1)]
@@ -107,14 +126,14 @@ class CuttlePoolGetConnection(CuttlePoolTestCase):
 
 class CuttlePoolPutConnection(CuttlePoolTestCase):
 
-    def test_cuttlepool_put_connection(self):
+    def test_put_connection(self):
         self.assertEqual(0, self.cp._pool.qsize())
 
         self.cp.put_connection(self.cp._make_connection())
 
         self.assertEqual(1, self.cp._pool.qsize())
 
-    def test_cuttlepool_put_connection_handle_overflow(self):
+    def test_put_connection_handle_overflow(self):
         self.assertEqual(0, self.cp._pool.qsize())
         self.assertEqual(0, self.cp._size)
 
@@ -132,7 +151,7 @@ class CuttlePoolPutConnection(CuttlePoolTestCase):
         self.assertTrue(con.open)
         self.assertFalse(con2.open)
 
-    def test_cuttlepool_put_connection_revert_cursorclass(self):
+    def test_put_connection_revert_cursorclass(self):
         con = self.cp._make_connection()
         con_id = id(con)
 
@@ -151,6 +170,6 @@ class CuttlePoolPutConnection(CuttlePoolTestCase):
         self.assertEqual(self.cp._reference_pool[0].cursorclass,
                          self.cp._connection_arguments['cursorclass'])
 
-    def test_cuttlepool_put_connection_wrong_arg(self):
+    def test_put_connection_wrong_arg(self):
         with self.assertRaises(ValueError):
             self.cp.put_connection(1)

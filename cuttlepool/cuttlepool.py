@@ -54,11 +54,18 @@ class CuttlePool(object):
         self._reference_pool = []
 
     def __del__(self):
-        self._close_connections()
+        try:
+            self._close_connections()
+        except:
+            pass
 
     @property
     def _size(self):
         return len(self._reference_pool)
+
+    @property
+    def connection_arguments(self):
+        return {k: v for k, v in self._connection_arguments.items()}
 
     def _make_connection(self):
         """
