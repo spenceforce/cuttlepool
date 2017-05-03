@@ -2,12 +2,11 @@
 """
 Tests related to the CuttlePool class.
 """
+import os
 import unittest
 
-import pymysql
 from cuttlepool import CuttlePool, PoolConnection
 
-from mysql_credentials import USER, PASSWD
 
 DB = '_cuttlepool_test_db'
 HOST = 'localhost'
@@ -16,14 +15,23 @@ HOST = 'localhost'
 class CuttlePoolTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.Connection = pymysql.connections.Connection
-        self.DiffCursor = pymysql.cursors.DictCursor
-        self.credentials = dict(user=USER, passwd=PASSWD, host=HOST)
+        self.sql_type = os.environ['TEST_CUTTLE_POOL'].lower()
 
-        self.con = pymysql.connect(**self.credentials)
-        cur = self.con.cursor()
-        cur.execute('CREATE DATABASE {}'.format(DB))
-        cur.close()
+        if self.sql_type == 'mysql':
+            import pymysql
+            from mysql_credentials import USER, PASSWD
+
+            self.Connection = pymysql.connections.Connection
+            self.DiffCursor = pymysql.cursors.DictCursor
+            self.connect = pymysql.connect
+            self.credentials = dict(user=USER, passwd=PASSWD, host=HOST)
+
+        self.con = self.connect(**self.credentials)
+
+        if self.sql_type != 'sqlite3':
+            cur = self.con.cursor()
+            cur.execute('CREATE DATABASE {}'.format(DB))
+            cur.close()
 
         self.cp = CuttlePool(capacity=1, overflow=1, timeout=1,
                              db=DB, **self.credentials)
