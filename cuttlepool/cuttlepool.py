@@ -11,16 +11,12 @@ except ImportError:
 import sys
 import threading
 
-import pymysql
-
-cursors = pymysql.cursors
-Connection = pymysql.connections.Connection
-
 
 class CuttlePool(object):
     """
     A connection pool for SQL databases.
 
+    :param func connect: The ``connect`` function of the chosen sql driver.
     :param int capacity: Max number of connections in pool. Defaults to ``5``.
     :param int timeout: Time in seconds to wait for connection. Defaults to
                         ``None``.
@@ -34,16 +30,16 @@ class CuttlePool(object):
                    seconds.
     """
 
-    def __init__(self, capacity=5, overflow=1, timeout=None, **kwargs):
+    def __init__(self, connect, capacity=5,
+                 overflow=1, timeout=None, **kwargs):
         if capacity <= 0:
             raise ValueError('connection pool requires a capacity of 1+ '
                              'connections')
         if overflow < 0:
             raise ValueError('pool overflow must be non negative')
 
+        self._connect = connect
         self._connection_arguments = kwargs
-        self._connection_arguments['cursorclass'] = self._connection_arguments.get(
-            'cursorclass', cursors.Cursor)
 
         self._capacity = capacity
         self._overflow = overflow
@@ -52,6 +48,9 @@ class CuttlePool(object):
 
         self._pool = queue.Queue(self._capacity)
         self._reference_pool = []
+
+        self.Connection = type(self._make_connection())
+        self._close_connections()
 
     def __del__(self):
         try:
@@ -71,12 +70,12 @@ class CuttlePool(object):
         """
         Returns a connection object.
         """
-        connection = pymysql.connect(**self._connection_arguments)
+        connection = self._connect(**self._connection_arguments)
         self._reference_pool.append(connection)
 
         return connection
 
-    def _collect_lost_connections(self):
+    def _harvest_lost_connections(self):
         """
         Returns lost connections to pool.
         """
@@ -114,30 +113,60 @@ class CuttlePool(object):
         """
         Returns a ``PoolConnection`` object.
 
+        :return: A ``PoolConnection`` object.
+
         :raises AttributeError: If attempt to get connection times out.
         """
         with threading.RLock():
+
+            if self._pool.empty():
+                self._harvest_lost_connections()
+
             try:
                 connection = self._pool.get_nowait()
+
             except:
+
                 if self._size < self._maxsize:
                     connection = self._make_connection()
-                else:
-                    self._collect_lost_connections()
 
+                else:
                     try:
                         connection = self._pool.get(timeout=self._timeout)
                     except queue.Empty:
                         raise AttributeError('could not get connection, the '
                                              'pool is depleted')
 
-            try:
-                connection.ping()
-            except:
+            if not self.ping(connection):
                 self._reference_pool.remove(connection)
                 connection = self._make_connection()
 
+            self.normalize_connection(connection)
+
             return PoolConnection(connection, self)
+
+    def normalize_connection(self, connection):
+        """
+        A user implemented function that resets the properties of the
+        ``Connection`` object. This prevents unwanted behavior from a
+        connection retrieved from the pool as it could have been changed
+        when previously used.
+
+        :param obj connection: A ``Connection`` object.
+        """
+        pass
+
+    def ping(self, connection):
+        """
+        A user implemented function that ensures the ``Connection`` object is
+        open.
+
+        :param obj connection: A ``Connection`` object.
+
+        :return: A bool indicating if the connection is open (``True``) or
+                 closed (``False``).
+        """
+        pass
 
     def put_connection(self, connection):
         """
@@ -148,21 +177,23 @@ class CuttlePool(object):
         :raises ValueError: If improper connection object.
         """
         with threading.RLock():
-            if not isinstance(connection, Connection):
+            if not isinstance(connection, self.Connection):
                 raise ValueError('improper connection object')
 
             if connection not in self._reference_pool:
                 raise ValueError('connection returned to pool was not created '
                                  'by pool')
 
-            connection.cursorclass = self._connection_arguments['cursorclass']
-
             try:
                 self._pool.put_nowait(connection)
 
             except queue.Full:
                 self._reference_pool.remove(connection)
-                connection.close()
+
+                try:
+                    connection.close()
+                except Exception:
+                    pass
 
 
 class PoolConnection(object):
@@ -179,7 +210,7 @@ class PoolConnection(object):
     def __init__(self, connection, pool):
         if not isinstance(pool, CuttlePool):
             raise AttributeError('improper pool object')
-        if not isinstance(connection, Connection):
+        if not isinstance(connection, pool.Connection):
             raise AttributeError('improper connection object')
 
         self._connection = connection
@@ -196,7 +227,7 @@ class PoolConnection(object):
         """
         Returns the connection to the connection pool.
         """
-        if isinstance(self._connection, Connection):
+        if isinstance(self._connection, self._pool.Connection):
             self._pool.put_connection(self._connection)
             self._connection = None
             self._pool = None

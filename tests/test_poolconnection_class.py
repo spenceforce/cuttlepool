@@ -2,19 +2,18 @@
 """
 Tests related to the PoolConnection class.
 """
-import unittest
-
 from cuttlepool import CuttlePool
 from cuttlepool.cuttlepool import PoolConnection
 
 from test_cuttlepool_class import CuttlePoolTestCase
 
 
-class PoolConnectionInstanceTestCase(unittest.TestCase):
+class PoolConnectionInstanceTestCase(CuttlePoolTestCase):
 
     def test_poolconnection_instantiate_wrong_connection(self):
         with self.assertRaises(AttributeError):
-            PoolConnection(connection=0, pool=CuttlePool())
+            PoolConnection(connection=0,
+                           pool=CuttlePool(self.connect, **self.credentials))
 
     def test_poolconnection_instantiate_wrong_pool(self):
         with self.assertRaises(AttributeError):

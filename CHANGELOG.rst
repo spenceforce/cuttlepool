@@ -9,6 +9,18 @@ Version 0.3.0
 
 Minor release, unreleased
 
+- Changed ``_collect_lost_connections()`` to ``_harvest_lost_connections()``.
+- ``get_connection()`` now calls ``_harvest_lost_connections()`` before
+  attempting to get a connection from the pool if the pool is empty.
+- ``CuttlePool`` object now requires a ``connect`` argument, which is a
+  ``connect()`` method of the chosen sql driver.
+- ``CuttlePool`` is now meant to be subclassed with user specified functions
+  ``normalize_connection()`` and ``ping()``.
+- ``get_connection()`` will now ping the connection according to a user defined
+  function ``ping()``.
+- ``get_connection()`` will reset the connection properties according to a
+  user defined function ``normalize_connection()``.
+
 Version 0.2.1
 -------------
 
