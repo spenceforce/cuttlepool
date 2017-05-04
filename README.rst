@@ -26,38 +26,78 @@ standalone connection pool.
 How-to Guide
 ============
 
-Cuttle Pool is actually pretty easy to use. Just create a ``CuttlePool`` object
-and get connections from it. ::
+Using Cuttle Pool requires subclassing a ``CuttlePool`` object with two user
+defined methods, ``normalize_connection()`` and ``ping()``. ::
 
+  >>> import sqlite3
   >>> from cuttlepool import CuttlePool
-  >>> pool = CuttlePool(db='ricks_lab', user='rick',
-                        passwd='wubalubadubdub', host='localhost')
+  >>> class SQLitePool(CuttlePool):
+  ...     def normalize_connection(self, connection):
+  ...         connection.row_factory = None
+  ...     def ping(self, connection):
+  ...         try:
+  ...             rv = connection.execute('SELECT 1').fetchall()
+  ...             return True if (1,) in rv else False
+  ...         except sqlite3.Error:
+  ...             return False
+  >>> pool = SQLitePool(sqlite3.connect, database='ricks_lab')
 
-It's definitely a good idea to import sensitive information (like the user and
-password used above) from a separate file that isn't tracked by your VCS.
+Let's break this down line by line.
 
-The ``CuttlePool`` object accepts any parameters that the underlying SQL driver
-accepts. There are three other parameters ``CuttlePool`` accepts that are
-unrelated to the SQL driver. ``capacity`` sets the max number of connections
-the pool will hold at any given time. ``overflow`` sets the max number of
-additional connections the pool will create when depleted. All overflow
-connections will be closed when returned to the pool if the pool is at
-capacity. ``timeout`` sets the amount of time in seconds the pool will wait for
-a connection to become free if the pool is depleted when a request for a
-connection is made.
+First, the ``sqlite3`` module is imported. ``sqlite3`` will be the underlying
+driver.
+
+``CuttlePool`` is imported and subclassed. The ``normalize_connection()`` method
+takes a ``connection`` object as a parameter and changes it's properties. This
+is important because a ``connection`` object can be modified while it's outside
+of the pool and any modifications made during that time will remain when the
+object is recycled. So the next time the object is taken from the pool, it will
+result in unexpected behavior if it was previously modified. This is where
+``normalize_connection()`` comes in. It "sanitizes" the ``connection`` object
+before releasing it from the pool when ``get_connection()`` is called. In this
+case, ``normalize_connection()`` is setting ``connection.row_factory`` to
+``None``.
+
+Next the ``ping()`` method is implemented, which also takes a ``connection``
+object as a parameter. ``ping()`` ensures the connection is open; if the
+connection is open, return ``True`` else return ``False``. In the above
+example, a simple statement is executed and if the expected result is returned,
+it means the connection is open and ``True`` is returned. The implementation
+of this method is really dependent on which driver is being used. If ``pymysql``
+was used, the implementation might look like this::
+
+  def ping(self, connection):
+      return connection.open
+
+Not every driver has the same API, so it's up to the user to implement a
+``ping()`` method that works for the chosen driver.
+
+Finally an instance of ``SQLitePool`` is made. The ``sqlite3.connect`` method is
+passed to the instance along with the database name. The first argument must be
+the ``connect`` method of the sql driver.
+
+The ``CuttlePool`` object and as a result the ``SQLitePool`` object accepts any
+parameters that the underlying SQL driver accepts. There are three other
+parameters the pool object accepts that are unrelated to the SQL driver.
+``capacity`` sets the max number of connections the pool will hold at any given
+time. ``overflow`` sets the max number of additional connections the pool will
+create when depleted. All overflow connections will be closed when returned to
+the pool if the pool is at capacity. ``timeout`` sets the amount of time in
+seconds the pool will wait for a connection to become free if the pool is
+depleted when a request for a connection is made.
 
 A connection from the pool can be used the same way a connection object of the
 underlying driver is used. ::
 
   >>> con = pool.get_connection()
   >>> cur = con.cursor()
-  >>> cur.execute('INSERT INTO ricks_lab (invention_name, state) VALUES '
-                  '(%s, %s)', ('Space Cruiser', 'damaged'))
+  >>> cur.execute('INSERT INTO garage (invention_name, state) '
+                  'VALUES (%s, %s)', ('Space Cruiser', 'damaged'))
   >>> cur.close()
   >>> con.close()
 
-The only exception is calling ``close()`` on the connection. Instead of closing
-the connection, it returns it to the pool.
+Calling ``close()`` on the connection returns it returns it to the pool instead
+of closing it.
 
 .. note::
    Once ``close()`` is called on the connection object, it renders the
@@ -77,8 +117,7 @@ How do I install it?
 What SQL implementations does Cuttle Pool support?
 --------------------------------------------------
 
-Right now just MySQL using the PyMySQL driver, but this will change in future
-versions of Cuttle Pool.
+It supports whatever SQL driver that is passed to it.
 
 Contributing
 ------------
@@ -103,12 +142,14 @@ tests.
 Running the tests
 -----------------
 
-To run the tests, tox will need to be installed with ``pip install tox``.
+To run the tests, tox will need to be installed with ``pip install tox`` and
+an environment variable, ``TEST_CUTTLE_POOL`` must be set to a SQL type like
+``sqlite3`` or ``mysql``.
 
 Tests can be run using tox with the command ``tox``. If the tests require
 user credentials, create a file ``<sql>_credentials.py`` with the appropriate
 variables in the test directory, where ``<sql>`` is the specific
-implementation desired for testing. For example, to run ``tox mysql``,
+implementation desired for testing. For example, to run ``tox``,
 ``USER`` and ``PASSWD`` variables must be placed in a file called
 ``mysql_credentials.py`` under the ``tests/`` directory.
 
