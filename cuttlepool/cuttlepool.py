@@ -10,6 +10,7 @@ except ImportError:
     import Queue as queue
 import sys
 import threading
+import warnings
 
 
 class CuttlePool(object):
@@ -44,7 +45,6 @@ class CuttlePool(object):
         self._capacity = capacity
         self._overflow = overflow
         self._timeout = timeout
-        self._maxsize = self._capacity + self._overflow
 
         self._pool = queue.Queue(self._capacity)
         self._reference_pool = []
@@ -57,6 +57,10 @@ class CuttlePool(object):
             self._close_connections()
         except:
             pass
+
+    @property
+    def _maxsize(self):
+        return self._capacity + self._overflow
 
     @property
     def _size(self):
@@ -92,7 +96,7 @@ class CuttlePool(object):
 
     def _close_connections(self):
         """
-        Closes all connections in the pool.
+        Closes all connections associated with the pool.
         """
         with threading.RLock():
             for con in self._reference_pool:
@@ -108,6 +112,12 @@ class CuttlePool(object):
                     break
 
             self._reference_pool = []
+
+    def empty_pool(self):
+        """
+        Removes all connections associated with the pool.
+        """
+        self._close_connections()
 
     def get_connection(self):
         """
@@ -154,7 +164,8 @@ class CuttlePool(object):
 
         :param obj connection: A ``Connection`` object.
         """
-        pass
+        warnings.warn('Failing to implement `normalize_connection()` may '
+                      'result in unusual behavior.')
 
     def ping(self, connection):
         """
@@ -166,7 +177,9 @@ class CuttlePool(object):
         :return: A bool indicating if the connection is open (``True``) or
                  closed (``False``).
         """
-        pass
+        warnings.warn('Failing to implement `ping()` will result in a new '
+                      'connection being made every time `get_connection()` is '
+                      'called.')
 
     def put_connection(self, connection):
         """

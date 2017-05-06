@@ -6,6 +6,7 @@ import os
 import threading
 import time
 import unittest
+import warnings
 
 from cuttlepool import CuttlePool, PoolConnection
 
@@ -17,6 +18,7 @@ HOST = 'localhost'
 class CuttlePoolTestCase(unittest.TestCase):
 
     def setUp(self):
+        warnings.filterwarnings('ignore')
         self.db = DB
         self.host = HOST
         self.sql_type = os.environ['TEST_CUTTLE_POOL'].lower()
@@ -293,3 +295,18 @@ class CuttlePoolPutConnection(CuttlePoolTestCase):
     def test_put_connection_wrong_arg(self):
         with self.assertRaises(ValueError):
             self.cp.put_connection(1)
+
+
+class CuttlePoolEmptyPool(CuttlePoolTestCase):
+
+    def test_empty_pool(self):
+        # make connections
+        cons = [self.cp.get_connection() for __ in range(self.cp._capacity)]
+
+        # place connections back in pool
+        [con.close() for con in cons]
+
+        self.cp.empty_pool()
+
+        self.assertEqual(0, self.cp._size)
+        self.assertTrue(self.cp._pool.empty())
