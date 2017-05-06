@@ -20,6 +20,7 @@ Minor release, unreleased
   function ``ping()``.
 - ``get_connection()`` will reset the connection properties according to a
   user defined function ``normalize_connection()``.
+- The pool can be emptied with ``empty_pool``.
 
 Version 0.2.1
 -------------
