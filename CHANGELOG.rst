@@ -7,8 +7,6 @@ Here are the changes made to Cuttle Pool for each release.
 Version 0.3.0
 -------------
 
-Minor release, unreleased
-
 - Changed ``_collect_lost_connections()`` to ``_harvest_lost_connections()``.
 - ``get_connection()`` now calls ``_harvest_lost_connections()`` before
   attempting to get a connection from the pool if the pool is empty.

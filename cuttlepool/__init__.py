@@ -6,7 +6,7 @@ Cuttle Pool, a SQL pool implementation.
 """
 
 
-__version__ = '0.3.0.dev'
+__version__ = '0.3.0'
 
 
 from .cuttlepool import CuttlePool, PoolConnection
