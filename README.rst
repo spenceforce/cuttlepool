@@ -26,14 +26,12 @@ standalone connection pool.
 How-to Guide
 ============
 
-Using Cuttle Pool requires subclassing a ``CuttlePool`` object with two user
-defined methods, ``normalize_connection()`` and ``ping()``. ::
+Using Cuttle Pool requires subclassing a ``CuttlePool`` object with a user
+defined method ``ping()``. ::
 
   >>> import sqlite3
   >>> from cuttlepool import CuttlePool
   >>> class SQLitePool(CuttlePool):
-  ...     def normalize_connection(self, connection):
-  ...         connection.row_factory = None
   ...     def ping(self, connection):
   ...         try:
   ...             rv = connection.execute('SELECT 1').fetchall()
@@ -47,24 +45,14 @@ Let's break this down line by line.
 First, the ``sqlite3`` module is imported. ``sqlite3`` will be the underlying
 driver.
 
-``CuttlePool`` is imported and subclassed. The ``normalize_connection()`` method
-takes a ``connection`` object as a parameter and changes it's properties. This
-is important because a ``connection`` object can be modified while it's outside
-of the pool and any modifications made during that time will remain when the
-object is recycled. So the next time the object is taken from the pool, it will
-result in unexpected behavior if it was previously modified. This is where
-``normalize_connection()`` comes in. It "sanitizes" the ``connection`` object
-before releasing it from the pool when ``get_connection()`` is called. In this
-case, ``normalize_connection()`` is setting ``connection.row_factory`` to
-``None``.
-
-Next the ``ping()`` method is implemented, which also takes a ``connection``
-object as a parameter. ``ping()`` ensures the connection is open; if the
-connection is open, return ``True`` else return ``False``. In the above
-example, a simple statement is executed and if the expected result is returned,
-it means the connection is open and ``True`` is returned. The implementation
-of this method is really dependent on which driver is being used. If ``pymysql``
-was used, the implementation might look like this::
+``CuttlePool`` is imported and subclassed. The ``ping()`` method is
+implemented, which also takes a ``connection`` object as a parameter. ``ping()``
+ensures the connection is open; if the connection is open, return ``True`` else
+return ``False``. In the above example, a simple statement is executed and if
+the expected result is returned, it means the connection is open and ``True``
+is returned. The implementation of this method is really dependent on which
+driver is being used. If ``pymysql`` was used, the implementation might look
+like this::
 
   def ping(self, connection):
       return connection.open

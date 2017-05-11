@@ -184,9 +184,9 @@ class CuttlePool(object):
         :return: A bool indicating if the connection is open (``True``) or
                  closed (``False``).
         """
-        warnings.warn('Failing to implement `ping()` will result in a new '
-                      'connection being made every time `get_connection()` is '
-                      'called.')
+        warnings.warn('Failing to implement `ping()` can result in unwanted '
+                      'behavior.')
+        return True
 
     def put_connection(self, connection):
         """
