@@ -29,10 +29,10 @@ def bump_release_version():
     with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py'), 'w') as f:
         f.write(init_file)
 
-    print 'Bumping version from {} to {}'.format(version, release_version)
-    print '-------------------------{}{}\n'.format(
+    print('Bumping version from {} to {}'.format(version, release_version))
+    print('-------------------------{}{}\n'.format(
         ''.join(['-' for __ in range(len(version))]),
-        ''.join(['-' for __ in range(len(release_version))]))
+        ''.join(['-' for __ in range(len(release_version))])))
 
     return release_version
 
@@ -46,8 +46,8 @@ def tidy_changelog():
         rm_ind = changelog.index(MAJ_UNRELEASED)
 
     if rm_ind == -1:
-        print 'Could not find changelog unreleased tag, skipping'
-        print '-------------------------------------------------\n'
+        print('Could not find changelog unreleased tag, skipping')
+        print('-------------------------------------------------\n')
         return
 
     del changelog[rm_ind:rm_ind + 2]
@@ -56,31 +56,31 @@ def tidy_changelog():
         for line in changelog:
             f.write(line)
 
-    print 'Removed changelog unreleased tag'
-    print '--------------------------------\n'
+    print('Removed changelog unreleased tag')
+    print('--------------------------------\n')
 
 
 def commit_dev(msg):
     subprocess.Popen('git commit -a -m "{}"'.format(msg),
                      shell=True).wait()
-    print 'Committed changes for release'
-    print '-----------------------------\n'
+    print('Committed changes for release')
+    print('-----------------------------\n')
 
 
 def merge_develop():
     subprocess.Popen(
         'git merge develop',
         shell=True).wait()
-    print 'Merged into master'
-    print '------------------\n'
+    print('Merged into master')
+    print('------------------\n')
 
 
 def git_tag(version):
     subprocess.Popen(
         'git tag v{}'.format(version),
         shell=True).wait()
-    print 'v{} tag added to master'.format(version)
-    print '---------------------{}\n'.format(''.join(['-' for __ in range(len(version))]))
+    print('v{} tag added to master'.format(version))
+    print('---------------------{}\n'.format(''.join(['-' for __ in range(len(version))])))
 
 
 def upload_pypi(version):
@@ -88,8 +88,8 @@ def upload_pypi(version):
                       'python setup.py sdist bdist_wheel && '
                       'twine upload dist/cuttlepool-{}*').format(version),
                      shell=True).wait()
-    print 'Uploaded to PyPI'
-    print '----------------\n'
+    print('Uploaded to PyPI')
+    print('----------------\n')
 
 
 def bump_dev_version():
@@ -125,8 +125,8 @@ def unreleased_changelog(release, dev):
         for line in changelog:
             f.write(line)
 
-    print 'Added new section for unreleased version to changelog'
-    print '-----------------------------------------------------\n'
+    print('Added new section for unreleased version to changelog')
+    print('-----------------------------------------------------\n')
 
 
 def main():
