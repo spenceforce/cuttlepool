@@ -251,8 +251,11 @@ class PoolConnection(object):
 
     def __setattr__(self, attr, value):
         """Sets attributes of connection object."""
+        if attr not in ['close', '_connection', '_pool']:
+            return setattr(self._connection, attr, value)
+
         if attr != 'close':
-            setattr(self._connection, attr, value)
+            self.__dict__[attr] = value
 
     def close(self):
         """
