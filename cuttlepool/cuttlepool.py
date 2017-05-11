@@ -249,6 +249,11 @@ class PoolConnection(object):
         if attr != 'close':
             return getattr(self._connection, attr)
 
+    def __setattr__(self, attr, value):
+        """Sets attributes of connection object."""
+        if attr != 'close':
+            setattr(self._connection, attr, value)
+
     def close(self):
         """
         Returns the connection to the connection pool.
