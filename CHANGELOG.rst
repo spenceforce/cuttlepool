@@ -7,8 +7,6 @@ Here are the changes made to Cuttle Pool for each release.
 Version 0.4.0
 -------------
 
-Minor release, unreleased
-
 - Add ability to set attributes on ``PoolConnection``.
 
 Version 0.3.0
