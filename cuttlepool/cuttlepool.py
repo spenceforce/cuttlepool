@@ -236,6 +236,12 @@ class PoolConnection(object):
         self._connection = connection
         self._pool = pool
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     def __getattr__(self, attr):
         """
         Gets attributes of connection object.
