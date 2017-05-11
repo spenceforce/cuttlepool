@@ -48,8 +48,12 @@ class CuttlePool(object):
 
         self._pool = queue.Queue(self._capacity)
         self._reference_pool = []
+        self._default_attributes = {}
 
-        self.Connection = type(self._make_connection())
+        connection = self._make_connection()
+        self._Connection = type(connection)
+        self._defaults = {attr: getattr(connection, attr)
+                          for attr in dir(connection)}
         self._close_connections()
 
     def __del__(self):
@@ -75,6 +79,7 @@ class CuttlePool(object):
         Returns a connection object.
         """
         connection = self._connect(**self._connection_arguments)
+
         self._reference_pool.append(connection)
 
         return connection
@@ -93,6 +98,20 @@ class CuttlePool(object):
             for idx in range(self._size):
                 if sys.getrefcount(self._reference_pool[idx]) < 3:
                     self.put_connection(self._reference_pool[idx])
+
+    def _normalize_connection(self, connection):
+        """
+        Resets the properties of the ``Connection`` object. This prevents
+        unwanted behavior from a connection retrieved from the pool as it
+        could have been changed when previously used.
+
+        :param obj connection: A ``Connection`` object.
+        """
+        for attr, value in self._defaults.items():
+            try:
+                setattr(connection, attr, value)
+            except Exception:
+                pass
 
     def _close_connections(self):
         """
@@ -151,21 +170,9 @@ class CuttlePool(object):
                 self._reference_pool.remove(connection)
                 connection = self._make_connection()
 
-            self.normalize_connection(connection)
+            self._normalize_connection(connection)
 
             return PoolConnection(connection, self)
-
-    def normalize_connection(self, connection):
-        """
-        A user implemented function that resets the properties of the
-        ``Connection`` object. This prevents unwanted behavior from a
-        connection retrieved from the pool as it could have been changed
-        when previously used.
-
-        :param obj connection: A ``Connection`` object.
-        """
-        warnings.warn('Failing to implement `normalize_connection()` may '
-                      'result in unusual behavior.')
 
     def ping(self, connection):
         """
@@ -190,7 +197,7 @@ class CuttlePool(object):
         :raises ValueError: If improper connection object.
         """
         with threading.RLock():
-            if not isinstance(connection, self.Connection):
+            if not isinstance(connection, self._Connection):
                 raise ValueError('improper connection object')
 
             if connection not in self._reference_pool:
@@ -223,7 +230,7 @@ class PoolConnection(object):
     def __init__(self, connection, pool):
         if not isinstance(pool, CuttlePool):
             raise AttributeError('improper pool object')
-        if not isinstance(connection, pool.Connection):
+        if not isinstance(connection, pool._Connection):
             raise AttributeError('improper connection object')
 
         self._connection = connection
@@ -240,7 +247,7 @@ class PoolConnection(object):
         """
         Returns the connection to the connection pool.
         """
-        if isinstance(self._connection, self._pool.Connection):
+        if isinstance(self._connection, self._pool._Connection):
             self._pool.put_connection(self._connection)
             self._connection = None
             self._pool = None

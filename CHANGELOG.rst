@@ -14,13 +14,13 @@ Minor release, unreleased
   attempting to get a connection from the pool if the pool is empty.
 - ``CuttlePool`` object now requires a ``connect`` argument, which is a
   ``connect()`` method of the chosen sql driver.
-- ``CuttlePool`` is now meant to be subclassed with user specified functions
-  ``normalize_connection()`` and ``ping()``.
+- ``CuttlePool`` is now meant to be subclassed with user specified function
+  ``ping()``.
 - ``get_connection()`` will now ping the connection according to a user defined
   function ``ping()``.
-- ``get_connection()`` will reset the connection properties according to a
-  user defined function ``normalize_connection()``.
 - The pool can be emptied with ``empty_pool``.
+- ``_normalize_connection()`` will reset all the connection attributes when a
+  connection leaves the pool.
 
 Version 0.2.1
 -------------
