@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import datetime
 import os
 import re
 import subprocess
@@ -8,6 +9,8 @@ import subprocess
 VER_RE = "__version__ = [\"'](?P<Version>(?:(?![\"']).)*)"
 MAJ_UNRELEASED = 'Major release, unreleased\n'
 MIN_UNRELEASED = 'Minor release, unreleased\n'
+BUG_UNRELEASED = 'Bug release, unreleased\n'
+UNRELEASED = [MAJ_UNRELEASED, MIN_UNRELEASED, BUG_UNRELEASED]
 
 
 def check_git_is_clean():
@@ -41,23 +44,21 @@ def tidy_changelog():
     with open(os.path.join(os.getcwd(), 'CHANGELOG.rst')) as f:
         changelog = f.readlines()
 
-    rm_ind = changelog.index(MIN_UNRELEASED)
-    if rm_ind == -1:
-        rm_ind = changelog.index(MAJ_UNRELEASED)
+    chng_ind = max([changelog.index(u) for u in UNRELEASED])
 
-    if rm_ind == -1:
-        print('Could not find changelog unreleased tag, skipping')
+    if chng_ind == -1:
+        print('Could not find changelog unreleased tag, abort')
         print('-------------------------------------------------\n')
-        return
+        raise ValueError('No unreleased tag.')
 
-    del changelog[rm_ind:rm_ind + 2]
+    changelog[chng_ind] = changelog[chng_ind].replace(
+        'unreleased',
+        '{:%d, %b, %Y}'.format(datetime.date.today())
+    )
 
     with open(os.path.join(os.getcwd(), 'CHANGELOG.rst'), 'w') as f:
         for line in changelog:
             f.write(line)
-
-    print('Removed changelog unreleased tag')
-    print('--------------------------------\n')
 
 
 def commit_dev(msg):
@@ -67,20 +68,12 @@ def commit_dev(msg):
     print('-----------------------------\n')
 
 
-def merge_develop():
-    subprocess.Popen(
-        'git merge develop',
-        shell=True).wait()
-    print('Merged into master')
-    print('------------------\n')
-
-
 def git_tag(version):
     subprocess.Popen(
         'git tag v{}'.format(version),
         shell=True).wait()
-    print('v{} tag added to master'.format(version))
-    print('---------------------{}\n'.format(''.join(['-' for __ in range(len(version))])))
+    print('v{} tag added'.format(version))
+    print('-------------{}\n'.format(''.join(['-' for __ in range(len(version))])))
 
 
 def upload_pypi(version):
@@ -97,7 +90,10 @@ def bump_dev_version():
         init_file = f.read()
         version = re.search(VER_RE, init_file).group('Version')
         dev_version = version.split('.')
-        dev_version[1] = str(int(dev_version[1]) + 1)
+        if dev_version[2] != '0':
+            dev_version[2] = str(int(dev_version[2]) + 1)
+        else:
+            dev_version[1] = str(int(dev_version[1]) + 1)
         dev_version.append('dev')
         dev_version = '.'.join(dev_version)
 
@@ -117,7 +113,11 @@ def unreleased_changelog(release, dev):
 
     add_ind = changelog.index('Version {}\n'.format(release))
 
-    changelog.insert(add_ind, 'Minor release, unreleased\n\n')
+    if dev.split('.')[2] != '0':
+        next_release = BUG_UNRELEASED
+    else:
+        next_release = MIN_UNRELEASED
+    changelog.insert(add_ind, '{}\n'.format(next_release))
     changelog.insert(add_ind, '{}\n\n'.format('-' * (len(changelog_ver) - 1)))
     changelog.insert(add_ind, changelog_ver)
 
@@ -130,8 +130,6 @@ def unreleased_changelog(release, dev):
 
 
 def main():
-    subprocess.Popen('git checkout develop', shell=True).wait()
-
     check_git_is_clean()
 
     version = bump_release_version()
@@ -141,15 +139,9 @@ def main():
     msg = 'prepare Cuttle Pool for {} release'.format(version)
     commit_dev(msg)
 
-    subprocess.Popen('git checkout master', shell=True).wait()
-
-    merge_develop()
-
     git_tag(version)
 
     upload_pypi(version)
-
-    subprocess.Popen('git checkout develop', shell=True).wait()
 
     dev_version = bump_dev_version()
 

@@ -4,6 +4,15 @@ Cuttle Pool Changelog
 
 Here are the changes made to Cuttle Pool for each release.
 
+Version 0.4.1
+-------------
+
+Bug release, unreleased
+
+- Changed ``_normalize_connection()`` to a user defined
+  ``normalize_connection()`` method which fixes problems with cross-referenced
+  attributes of ``Connection`` objects.
+
 Version 0.4.0
 -------------
 

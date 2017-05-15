@@ -80,6 +80,7 @@ class CuttlePoolInstanceTestCase(CuttlePoolTestCase):
 
     def test_connection_class_set(self):
         cp = CuttlePool(self.connect, **self.credentials)
+        cp.get_connection()
         self.assertEqual(cp._Connection, self.Connection)
 
     def test_instantiate_wrong_capacity(self):
@@ -190,16 +191,34 @@ class CuttlePoolNormalizeConnection(CuttlePoolTestCase):
         super(CuttlePoolNormalizeConnection, self).setUp()
 
         if self.sql_type == 'mysql':
+            Cursor = self.Cursor
+
+            class Pool(CuttlePool):
+
+                def normalize_connection(self, connection):
+                    with threading.RLock():
+                        connection.cursorclass = Cursor
+
             self.change_con = lambda x: setattr(x,
                                                 'cursorclass',
                                                 self.DiffCursor)
             self.is_normalized = lambda x: x.cursorclass == self.Cursor
 
         elif self.sql_type == 'sqlite3':
+            row_factory = self.row_factory
+
+            class Pool(CuttlePool):
+
+                def normalize_connection(self, connection):
+                    with threading.RLock():
+                        connection.row_factory = row_factory
+
             self.change_con = lambda x: setattr(x,
                                                 'row_factory',
                                                 self.diff_row_factory)
             self.is_normalized = lambda x: x.row_factory == self.row_factory
+
+        self.cp = Pool(self.connect, **self.credentials)
 
     def test_normalize_connection(self):
         con = self.cp.get_connection()
@@ -208,7 +227,7 @@ class CuttlePoolNormalizeConnection(CuttlePoolTestCase):
         self.change_con(con._connection)
 
         # normalize connection
-        self.cp._normalize_connection(con._connection)
+        self.cp.normalize_connection(con._connection)
 
         # ensure connection property was reset
         self.assertTrue(self.is_normalized(con._connection))
@@ -276,6 +295,7 @@ class CuttlePoolPutConnection(CuttlePoolTestCase):
 
     def test_put_connection_wrong_arg(self):
         with self.assertRaises(ValueError):
+            self.cp.get_connection()  # Get a connection to set the default _Connection class
             self.cp.put_connection(1)
 
 

@@ -12,8 +12,9 @@ class PoolConnectionInstanceTestCase(CuttlePoolTestCase):
 
     def test_poolconnection_instantiate_wrong_connection(self):
         with self.assertRaises(AttributeError):
+            self.cp.get_connection()
             PoolConnection(connection=0,
-                           pool=CuttlePool(self.connect, **self.credentials))
+                           pool=self.cp)
 
     def test_poolconnection_instantiate_wrong_pool(self):
         with self.assertRaises(AttributeError):
