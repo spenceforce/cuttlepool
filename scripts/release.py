@@ -9,7 +9,7 @@ import subprocess
 VER_RE = "__version__ = [\"'](?P<Version>(?:(?![\"']).)*)"
 MAJ_UNRELEASED = 'Major release, unreleased\n'
 MIN_UNRELEASED = 'Minor release, unreleased\n'
-BUG_UNRELEASED = 'Bug release, unreleased\n'
+BUG_UNRELEASED = 'Bugfix release, unreleased\n'
 UNRELEASED = [MAJ_UNRELEASED, MIN_UNRELEASED, BUG_UNRELEASED]
 
 
