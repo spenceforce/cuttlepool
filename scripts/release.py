@@ -59,7 +59,7 @@ def tidy_changelog():
 
     changelog[chng_ind] = changelog[chng_ind].replace(
         'unreleased',
-        '{:%d, %b, %Y}'.format(datetime.date.today())
+        '{:%d, %b %Y}'.format(datetime.date.today())
     )
 
     with open(os.path.join(os.getcwd(), 'CHANGELOG.rst'), 'w') as f:
