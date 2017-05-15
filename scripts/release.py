@@ -44,7 +44,13 @@ def tidy_changelog():
     with open(os.path.join(os.getcwd(), 'CHANGELOG.rst')) as f:
         changelog = f.readlines()
 
-    chng_ind = max([changelog.index(u) for u in UNRELEASED])
+    chng_ind = -1
+    for u in UNRELEASED:
+        try:
+            chng_ind = changelog.index(u)
+            break
+        except:
+            pass
 
     if chng_ind == -1:
         print('Could not find changelog unreleased tag, abort')
