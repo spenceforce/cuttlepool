@@ -27,7 +27,7 @@ How-to Guide
 ============
 
 Using Cuttle Pool requires subclassing a ``CuttlePool`` object with a user
-defined method ``ping()``. ::
+defined method ``normalize_connection()`` and ``ping()``. ::
 
   >>> import sqlite3
   >>> from cuttlepool import CuttlePool
