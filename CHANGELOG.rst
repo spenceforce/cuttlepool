@@ -4,6 +4,11 @@ Cuttle Pool Changelog
 
 Here are the changes made to Cuttle Pool for each release.
 
+Version 0.4.2
+-------------
+
+Bugfix release, unreleased
+
 Version 0.4.1
 -------------
 
