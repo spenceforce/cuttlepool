@@ -134,10 +134,6 @@ Install the package in editable mode::
 
 Now you're set. See the next section for running tests.
 
-Please work off the ``develop`` branch. Better yet, create a new branch from
-``develop`` and merge it back into ``develop`` when functional and passing
-tests.
-
 Running the tests
 -----------------
 
