@@ -7,7 +7,7 @@ Here are the changes made to Cuttle Pool for each release.
 Version 0.4.1
 -------------
 
-Bug release, unreleased
+Bug release, 15, May, 2017
 
 - Changed ``_normalize_connection()`` to a user defined
   ``normalize_connection()`` method which fixes problems with cross-referenced
