@@ -50,7 +50,9 @@ driver.
 ``CuttlePool`` is imported and subclassed. The ``normalize_connection()``
 method takes a ``Connection`` object as a parameter and changes it's
 properties. This is important because a ``Connection`` object can be modified
-while it's outside of the pool and any modifications made during that time 
+while it's outside of the pool and any modifications made during that time will
+persist; this can have unintended consequences when the ``Connection`` object
+is later retrieved from the pool.
 
 Next the ``ping()`` method is implemented, which also takes a ``Connection``
 object as a parameter. ``ping()`` ensures the connection is open; if the
@@ -95,8 +97,8 @@ underlying driver is used. ::
   >>> cur.close()
   >>> con.close()
 
-Calling ``close()`` on the connection returns it returns it to the pool instead
-of closing it.
+Calling ``close()`` on the connection returns it to the pool instead of closing
+it.
 
 .. note::
    Once ``close()`` is called on the connection object, it renders the
