@@ -2,7 +2,7 @@
 """
 Cuttle Pool class.
 
-:license: MIT, see LICENSE for details.
+:license: BSD 3-clause, see LICENSE for details.
 """
 try:
     import queue

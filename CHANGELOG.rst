@@ -9,6 +9,8 @@ Version 0.5.0
 
 Minor release, unreleased
 
+- Change license from MIT to BSD 3-clause.
+
 Version 0.4.1
 -------------
 
