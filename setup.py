@@ -8,7 +8,7 @@ VER_RE = "__version__ = [\"'](?P<Version>(?:(?![\"']).)*)"
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py'), 'r') as f:
+with open(os.path.join(os.getcwd(), 'cuttlepool.py'), 'r') as f:
     init_file = f.read()
     version = re.search(VER_RE, init_file).group('Version')
 
