@@ -133,7 +133,14 @@ class CuttlePool(object):
 
     def get_connection(self):
         """
-        Returns a ``PoolConnection`` object.
+        Returns a ``PoolConnection`` object. This method will try to retrieve
+        a connection in the following order. First if the pool is empty, it
+        will return any unreferenced connections back to the pool. Second it
+        will attempt to get a connection from the pool without a timeout. Third
+        it will create a new connection if the maximum number of open
+        connections hasn't been exceeded. Fourth it will try to get a
+        connection from the pool with the specified timeout and will finally
+        raise an error if the timeout is exceeded without finding a connection.
 
         :return: A ``PoolConnection`` object.
 
