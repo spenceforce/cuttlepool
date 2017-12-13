@@ -46,6 +46,12 @@ class MockCursor(object):
         """
         self.connection = None
 
+    def execute(self, query, *args):
+        """
+        "Executes" a query.
+        """
+        pass
+
 
 def connect(**kwargs):
     """
