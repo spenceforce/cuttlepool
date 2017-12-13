@@ -141,6 +141,8 @@ class CuttlePool(object):
         connections hasn't been exceeded. Fourth it will try to get a
         connection from the pool with the specified timeout and will finally
         raise an error if the timeout is exceeded without finding a connection.
+        Fifth if the connection is closed, a new connection is created to
+        replace it.
 
         :return: A ``PoolConnection`` object.
 
