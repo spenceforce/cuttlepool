@@ -43,6 +43,9 @@ class CuttlePool(object):
 
         self._connect = connect
         self._connection_arguments = kwargs
+        # The class of the connection object which will be set when the first
+        # connection is requested.
+        self._connection = None
 
         self._capacity = capacity
         self._overflow = overflow
@@ -50,7 +53,6 @@ class CuttlePool(object):
 
         self._pool = queue.Queue(self._capacity)
         self._reference_pool = []
-        self._Connection = None
 
         # Required for locking the connection pool in multi-threaded
         # environments.
@@ -80,8 +82,8 @@ class CuttlePool(object):
         """
         connection = self._connect(**self._connection_arguments)
 
-        if self._Connection is None:
-            self._Connection = type(connection)
+        if self._connection is None:
+            self._connection = type(connection)
 
         self._reference_pool.append(connection)
 
@@ -200,7 +202,7 @@ class CuttlePool(object):
         :raises ValueError: If improper connection object.
         """
         with self.lock:
-            if not isinstance(connection, self._Connection):
+            if not isinstance(connection, self._connection):
                 raise ValueError('Improper connection object')
 
             if connection not in self._reference_pool:
@@ -233,7 +235,7 @@ class PoolConnection(object):
     def __init__(self, connection, pool):
         if not isinstance(pool, CuttlePool):
             raise AttributeError('Improper pool object')
-        if not isinstance(connection, pool._Connection):
+        if not isinstance(connection, pool._connection):
             raise AttributeError('Improper connection object')
 
         self._connection = connection
@@ -264,7 +266,7 @@ class PoolConnection(object):
         """
         Returns the connection to the connection pool.
         """
-        if isinstance(self._connection, self._pool._Connection):
+        if isinstance(self._connection, self._pool._connection):
             self._pool.put_connection(self._connection)
             self._connection = None
             self._pool = None
