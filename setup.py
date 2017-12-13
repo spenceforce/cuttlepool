@@ -22,12 +22,12 @@ setup(name='cuttlepool',
       long_description=long_description,
       url='https://github.com/smitchell556/cuttlepool',
       author='Spencer Mitchell',
-      license='MIT',
+      license='BSD 3-Clause',
       classifiers=[
           'Development Status :: 4 - Beta',
           'Intended Audience :: Developers',
           'Topic :: Software Development :: Libraries :: Python Modules',
-          'License :: OSI Approved :: MIT License',
+          'License :: OSI Approved :: BSD License',
           'Programming Language :: Python :: 2.7',
           'Programming Language :: Python :: 3.3',
           'Programming Language :: Python :: 3.4',
@@ -37,4 +37,7 @@ setup(name='cuttlepool',
       keywords='sql connection pool',
       packages=find_packages(),
       include_package_data=True,
+      extras_require={
+          'dev': ['pytest']
+      }
       )

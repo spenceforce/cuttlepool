@@ -134,7 +134,7 @@ Clone the repository::
 Install the package in editable mode::
 
   cd cuttlepool
-  pip install -e .
+  pip install -e .[dev]
 
 Now you're set. See the next section for running tests.
 
