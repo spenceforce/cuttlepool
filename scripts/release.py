@@ -19,7 +19,7 @@ def check_git_is_clean():
 
 
 def bump_release_version():
-    with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py')) as f:
+    with open(os.path.join(os.getcwd(), 'cuttlepool.py')) as f:
         init_file = f.read()
         version = re.search(VER_RE, init_file).group('Version')
         if 'dev' not in version:
@@ -29,7 +29,7 @@ def bump_release_version():
 
     init_file = init_file.replace(version, release_version)
 
-    with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py'), 'w') as f:
+    with open(os.path.join(os.getcwd(), 'cuttlepool.py'), 'w') as f:
         f.write(init_file)
 
     print('Bumping version from {} to {}'.format(version, release_version))
@@ -92,7 +92,7 @@ def upload_pypi(version):
 
 
 def bump_dev_version():
-    with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py')) as f:
+    with open(os.path.join(os.getcwd(), 'cuttlepool.py')) as f:
         init_file = f.read()
         version = re.search(VER_RE, init_file).group('Version')
         dev_version = version.split('.')
@@ -105,7 +105,7 @@ def bump_dev_version():
 
     init_file = init_file.replace(version, dev_version)
 
-    with open(os.path.join(os.getcwd(), 'cuttlepool/__init__.py'), 'w') as f:
+    with open(os.path.join(os.getcwd(), 'cuttlepool.py'), 'w') as f:
         f.write(init_file)
 
     return dev_version

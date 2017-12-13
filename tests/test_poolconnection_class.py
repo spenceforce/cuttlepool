@@ -2,8 +2,7 @@
 """
 Tests related to the PoolConnection class.
 """
-from cuttlepool import CuttlePool
-from cuttlepool.cuttlepool import PoolConnection
+from cuttlepool import PoolConnection
 
 from test_cuttlepool_class import CuttlePoolTestCase
 

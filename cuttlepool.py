@@ -4,6 +4,10 @@ Cuttle Pool class.
 
 :license: BSD 3-clause, see LICENSE for details.
 """
+
+__version__ = '0.4.1'
+
+
 try:
     import queue
 except ImportError:
