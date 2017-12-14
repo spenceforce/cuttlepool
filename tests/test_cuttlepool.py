@@ -2,6 +2,9 @@
 """
 CuttlePool tests.
 """
+import threading
+import time
+
 import pytest
 
 from cuttlepool import CuttlePool, PoolConnection
@@ -85,6 +88,48 @@ def test_get_connection(pool):
     """
     con = pool.get_connection()
     assert isinstance(con, PoolConnection)
+
+
+def test_get_connection_overflow(pool):
+    """
+    Tests the pool creates proper number of overflow connections properly.
+    """
+    cons = []
+    for __ in range(pool._capacity):
+        cons.append(pool.get_connection())
+
+    con = pool.get_connection()
+    assert pool._size == pool._maxsize
+
+    con.close()
+    for con in cons:
+        con.close()
+
+    assert pool._size == pool._pool.qsize() == pool._capacity
+
+
+def test_get_connection_depleted(pool):
+    """Tests the pool will return a connection once one is available."""
+    def worker(pool):
+        con = pool.get_connection()
+        time.sleep(3)
+        con.close()
+
+    for _ in range(pool._maxsize):
+        t = threading.Thread(target=worker, args=(pool,))
+        t.start()
+
+    time.sleep(1)
+    con = pool.get_connection()
+
+
+def test_get_connection_depleted_error():
+    """Tests the pool will raise an error when depleted."""
+    pool = MockPool(mocksql.connect, timeout=1)
+    with pytest.raises(AttributeError):
+        cons = []
+        while True:
+            cons.append(pool.get_connection())
 
 
 def test_normalize_connection():
