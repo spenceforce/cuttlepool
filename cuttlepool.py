@@ -80,14 +80,15 @@ class CuttlePool(object):
         """
         Returns a connection object.
         """
-        connection = self._connect(**self._connection_arguments)
+        with self.lock:
+            connection = self._connect(**self._connection_arguments)
 
-        if self._connection is None:
-            self._connection = type(connection)
+            if self._connection is None:
+                self._connection = type(connection)
 
-        self._reference_pool.append(connection)
+            self._reference_pool.append(connection)
 
-        return connection
+            return connection
 
     def _harvest_lost_connections(self):
         """
@@ -148,33 +149,37 @@ class CuttlePool(object):
 
         :raises AttributeError: If attempt to get connection times out.
         """
+        connection = None
+
         with self.lock:
 
             if self._pool.empty():
                 self._harvest_lost_connections()
 
-            try:
-                connection = self._pool.get_nowait()
+        try:
+            connection = self._pool.get_nowait()
 
-            except:
+        except:
 
+            with self.lock:
                 if self._size < self._maxsize:
                     connection = self._make_connection()
 
-                else:
-                    try:
-                        connection = self._pool.get(timeout=self._timeout)
-                    except queue.Empty:
-                        raise AttributeError('Could not get connection, the '
-                                             'pool is depleted')
+            if connection is None:
+                try:
+                    connection = self._pool.get(timeout=self._timeout)
+                except queue.Empty:
+                    raise AttributeError('Could not get connection, the '
+                                         'pool is depleted')
 
-            if not self.ping(connection):
+        if not self.ping(connection):
+            with self.lock:
                 self._reference_pool.remove(connection)
                 connection = self._make_connection()
 
-            self.normalize_connection(connection)
+        self.normalize_connection(connection)
 
-            return PoolConnection(connection, self)
+        return PoolConnection(connection, self)
 
     def normalize_connection(self, connection):
         """
