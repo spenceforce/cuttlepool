@@ -81,7 +81,7 @@ class CuttlePool(object):
                number of existing connections. This includes connections in the
                pool and connections in use.
 
-        .. warnings:: This is not threadsafe. ``_size`` can change when context
+        .. warning:: This is not threadsafe. ``_size`` can change when context
                       switches to another thread.
         """
         with self.lock:
@@ -126,9 +126,13 @@ class CuttlePool(object):
                 if sys.getrefcount(self._reference_pool[idx]) < 3:
                     self.put_connection(self._reference_pool[idx])
 
-    def _close_connections(self):
+    def empty_pool(self):
         """
-        Closes all connections associated with the pool.
+        Closes and removes all connections associated with the pool.
+
+        .. warning:: This function is not safe and will close any connection
+                      in use *outside* of the pool as well as those in the
+                      pool.
         """
         with self.lock:
             for con in self._reference_pool:
@@ -145,12 +149,6 @@ class CuttlePool(object):
 
         with self.lock:
             self._reference_pool = []
-
-    def empty_pool(self):
-        """
-        Removes all connections associated with the pool.
-        """
-        self._close_connections()
 
     def get_connection(self):
         """
