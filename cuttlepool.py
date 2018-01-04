@@ -89,7 +89,7 @@ class CuttlePool(object):
                pool and connections in use.
 
         .. warning:: This is not threadsafe. ``_size`` can change when context
-                      switches to another thread.
+                     switches to another thread.
         """
         with self.lock:
             return len(self._reference_pool)
@@ -138,8 +138,8 @@ class CuttlePool(object):
         Closes and removes all connections associated with the pool.
 
         .. warning:: This function is not safe and will close any connection
-                      in use *outside* of the pool as well as those in the
-                      pool.
+                     in use *outside* of the pool as well as those in the
+                     pool.
         """
         with self.lock:
             for con in self._reference_pool:
@@ -170,7 +170,8 @@ class CuttlePool(object):
 
         :return: A ``PoolConnection`` object.
 
-        :raises AttributeError: If attempt to get connection times out.
+        :raises PoolDepletedError: If attempt to get connection fails or times
+                                   out.
         """
         connection = None
 
@@ -185,13 +186,16 @@ class CuttlePool(object):
                 connection = self._make_connection()
 
         if connection is None:
-            # No available connections, so must wait for a connection to
-            # return to the pool.
+            # Could not find or make connection, so must wait for a connection
+            # to be returned to the pool.
             try:
                 connection = self._pool.get(timeout=self._timeout)
             except queue.Empty:
-                raise AttributeError('Could not get connection, the pool is '
-                                     'depleted')
+                pass
+
+        if connection is None:
+            raise PoolDepletedError('Could not get connection, the pool is '
+                                    'depleted')
 
         # Ensure connection is active.
         if not self.ping(connection):
@@ -236,15 +240,17 @@ class CuttlePool(object):
 
         :param connection: A connection object.
 
-        :raises ValueError: If improper connection object.
+        :raises ConnectionTypeError: If improper connection object.
+        :raises UnknownConnectionError: If connection was not made by the
+                                        pool.
         """
         if not isinstance(connection, self._Connection):
-            raise ValueError('Improper connection object')
+            raise ConnectionTypeError('Improper connection object')
 
         with self.lock:
             if connection not in self._reference_pool:
-                raise ValueError('Connection returned to pool was not created '
-                                 'by pool')
+                raise UnknownConnectionError('Connection returned to pool was '
+                                             'not created by pool')
 
         try:
             self._pool.put_nowait(connection)
@@ -264,15 +270,15 @@ class PoolConnection(object):
     :param connection: A connection object.
     :param pool: A connection pool.
 
-    :raises AttributeError: If improper connection object or improper pool
-                            object.
+    :raises PoolTypeError: If improper pool object.
+    :raises ConnectionTypeError: If improper connection object.
     """
 
     def __init__(self, connection, pool):
         if not isinstance(pool, CuttlePool):
-            raise AttributeError('Improper pool object')
+            raise PoolTypeError('Improper pool object')
         if not isinstance(connection, pool._Connection):
-            raise AttributeError('Improper connection object')
+            raise ConnectionTypeError('Improper connection object')
 
         self._connection = connection
         self._pool = pool
@@ -302,7 +308,35 @@ class PoolConnection(object):
         """
         Returns the connection to the connection pool.
         """
-        if isinstance(self._connection, self._pool._Connection):
+        if self._connection is not None:
             self._pool.put_connection(self._connection)
             self._connection = None
             self._pool = None
+
+
+class CuttlePoolError(Exception):
+    """Base class for exceptions in this module."""
+
+
+class PoolDepletedError(CuttlePoolError):
+    """Exception raised when pool timeouts."""
+
+
+class UnknownConnectionError(CuttlePoolError):
+    """
+    Exception raised when a connection is returned to the pool that was not
+    made by the pool.
+    """
+
+
+class ConnectionTypeError(CuttlePoolError):
+    """
+    Exception raised when the object returned to the pool is not the correct
+    type.
+    """
+
+
+class PoolTypeError(CuttlePoolError):
+    """
+    Exception raised when the object is not the proper connection pool.
+    """

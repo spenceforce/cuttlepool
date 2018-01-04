@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from cuttlepool import CuttlePool, PoolConnection
+from cuttlepool import CuttlePool, PoolConnection, PoolDepletedError
 import mocksql
 
 
@@ -135,7 +135,7 @@ def test_get_connection_depleted(pool):
 def test_get_connection_depleted_error():
     """Tests the pool will raise an error when depleted."""
     pool = MockPool(mocksql.connect, timeout=1)
-    with pytest.raises(AttributeError):
+    with pytest.raises(PoolDepletedError):
         cons = []
         while True:
             cons.append(pool.get_connection())

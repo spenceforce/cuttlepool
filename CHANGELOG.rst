@@ -9,6 +9,8 @@ Version 0.5.0
 
 Minor release, unreleased
 
+- Added custom exceptions.
+- ``timeout`` argument is now validated for ``CuttlePool`` initialization.
 - Implemented proper use of ``threading.RLock`` on a per ``CuttlePool``
   instance.
 - Change license from MIT to BSD 3-clause.
