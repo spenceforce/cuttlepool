@@ -35,7 +35,7 @@ setup(name='cuttlepool',
           'Programming Language :: Python :: 3.6',
       ],
       keywords='sql connection pool',
-      packages=find_packages(),
+      py_modules=['cuttlepool'],
       include_package_data=True,
       extras_require={
           'dev': ['pytest']
