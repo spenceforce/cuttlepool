@@ -30,7 +30,8 @@ class CuttlePool(object):
     :param \**kwargs: Connection arguments for the underlying database
                       connector.
 
-    :raises ValueError: If capacity <= 0 or overflow < 0.
+    :raises ValueError: If capacity <= 0 or overflow < 0 or timeout < 0.
+    :raises TypeError: If timeout is not int.
     """
 
     def __init__(self, connect, capacity=5,
@@ -40,6 +41,12 @@ class CuttlePool(object):
                              '1 connection')
         if overflow < 0:
             raise ValueError('Pool overflow must be non negative')
+        if timeout is not None:
+            msg = 'Timeout must be non negative integer'
+            if type(timeout) != int:
+                raise TypeError(msg)
+            if timeout < 0:
+                raise ValueError(msg)
 
         self._connect = connect
         self._connection_arguments = kwargs

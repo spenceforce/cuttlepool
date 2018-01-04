@@ -57,6 +57,15 @@ def test_negative_overflow():
         MockPool(mocksql.connect, overflow=-1)
 
 
+def test_improper_timeout():
+    """Tests error is raised for improper timeout argument."""
+    with pytest.raises(ValueError):
+        MockPool(mocksql.connect, timeout=-1)
+
+    with pytest.raises(TypeError):
+        MockPool(mocksql.connect, timeout=-0.1)
+
+
 def test_make_connection(pool):
     """
     Tests the connection object returned from _make_connection is the
