@@ -40,9 +40,9 @@ def test_connection_attribute_set(pool):
     Tests that the _connection attribute is set with the right class after a
     connection is requested.
     """
-    assert pool._connection is None
+    assert pool._Connection is None
     pool.get_connection()
-    assert pool._connection is mocksql.MockConnection
+    assert pool._Connection is mocksql.MockConnection
 
 
 def test_nonpositive_capacity():
