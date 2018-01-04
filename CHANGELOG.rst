@@ -7,7 +7,7 @@ Here are the changes made to Cuttle Pool for each release.
 Version 0.5.0
 -------------
 
-Minor release, unreleased
+Minor release, 04, Jan 2018
 
 - Added custom exceptions.
 - ``timeout`` argument is now validated for ``CuttlePool`` initialization.
