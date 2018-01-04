@@ -5,7 +5,7 @@ Cuttle Pool class.
 :license: BSD 3-clause, see LICENSE for details.
 """
 
-__version__ = '0.5.1.dev'
+__version__ = '0.5.1'
 
 
 try:

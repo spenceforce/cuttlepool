@@ -7,7 +7,7 @@ Here are the changes made to Cuttle Pool for each release.
 Version 0.5.1
 -------------
 
-Bugfix release, unreleased
+Bugfix release, 04, Jan 2018
 
 - Fix setup.py to work with module instead of packages.
 
