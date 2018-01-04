@@ -61,7 +61,7 @@ class CuttlePool(object):
     def __del__(self):
         try:
             self._close_connections()
-        except:
+        except Exception:
             pass
 
     @property
@@ -136,10 +136,8 @@ class CuttlePool(object):
         """
         with self.lock:
             for con in self._reference_pool:
-                try:
+                if self.ping(con):
                     con.close()
-                except:
-                    pass
 
         while not self._pool.empty():
             try:
