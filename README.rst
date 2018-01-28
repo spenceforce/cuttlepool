@@ -141,16 +141,7 @@ Now you're set. See the next section for running tests.
 Running the tests
 -----------------
 
-To run the tests, tox will need to be installed with ``pip install tox`` and
-an environment variable, ``TEST_CUTTLE_POOL`` must be set to a SQL type like
-``sqlite3`` or ``mysql``.
-
-Tests can be run using tox with the command ``tox``. If the tests require
-user credentials, create a file ``<sql>_credentials.py`` with the appropriate
-variables in the test directory, where ``<sql>`` is the specific
-implementation desired for testing. For example, to run ``tox``,
-``USER`` and ``PASSWD`` variables must be placed in a file called
-``mysql_credentials.py`` under the ``tests/`` directory.
+Tests can be run with the command ``pytest``.
 
 Where can I get help?
 ---------------------
