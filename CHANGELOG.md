@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com) and this
 project adheres to [Semantic Versioning](http://semver.org).
 
+## [Unreleased]
+
 ## [0.6.0] - 2018-01-28
 ### Changed
 - Reformat CHANGELOG to be in line with [Keep a
