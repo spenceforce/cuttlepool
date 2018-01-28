@@ -55,8 +55,8 @@ function test_pypi {
 
     # Let user ensure package can be installed from Test PYPi.
     read -p "Can package be installed from TestPYPi properly? [y/N] " resp
-    case $answer in
-	[yY]) ;;
+    case $resp in
+	[yY] ) ;;
 	*) echo "release: Pausing release. Release script will resume from this point." >&2; exit 1;;
     esac
     pypi $1 $2
