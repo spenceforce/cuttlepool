@@ -66,10 +66,7 @@ class CuttlePool(object):
         self.lock = threading.RLock()
 
     def __del__(self):
-        try:
-            self._close_connections()
-        except Exception:
-            pass
+        self.empty_pool()
 
     @property
     def _maxsize(self):

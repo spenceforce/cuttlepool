@@ -11,6 +11,10 @@ project adheres to [Semantic Versioning](http://semver.org).
 - Instruct users to run tests with `pytest` command.
 
 ### Fixed
+- `__del__` method calls `empty_pool()` instead of non-existent
+  `_close_connections`.
+
+### Fixed
 - Make `setup.py` upload python module instead of package.
 
 ## [0.5.0] - 2018-01-04
