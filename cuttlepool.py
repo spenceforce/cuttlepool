@@ -17,6 +17,11 @@ import threading
 import warnings
 
 
+CAPACITY = 5
+OVERFLOW = 1
+TIMEOUT = None
+
+
 class CuttlePool(object):
     """
     A connection pool for SQL databases.
@@ -34,8 +39,8 @@ class CuttlePool(object):
     :raises TypeError: If timeout is not int.
     """
 
-    def __init__(self, connect, capacity=5,
-                 overflow=1, timeout=None, **kwargs):
+    def __init__(self, connect, capacity=CAPACITY,
+                 overflow=OVERFLOW, timeout=TIMEOUT, **kwargs):
         if capacity <= 0:
             raise ValueError('Connection pool requires a capacity of at least '
                              '1 connection')

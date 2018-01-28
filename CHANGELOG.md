@@ -8,7 +8,8 @@ project adheres to [Semantic Versioning](http://semver.org).
 ### Changed
 - Reformat CHANGELOG to be in line with [Keep a
   Changelog](https://keepachangelog.com).
-- Instruct users to run tests with `pytest` command.
+	- Instruct users to run tests with `pytest` command.
+- Make default `CuttlePool` parameters top-level variables.
 
 ### Fixed
 - `__del__` method calls `empty_pool()` instead of non-existent
