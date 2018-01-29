@@ -24,7 +24,11 @@ project adheres to [Semantic Versioning](http://semver.org).
 ### Fixed
 - Make `setup.py` upload python module instead of package.
 
-## [0.5.0] - 2018-01-04
+## [0.5.1] - 2018-01-04
+### Fixed
+- Make `setup.py` upload python module instead of package.
+
+## [0.5.0] - 2018-01-04 [YANKED]
 ### Added
 - Custom exceptions.
 
@@ -85,3 +89,13 @@ project adheres to [Semantic Versioning](http://semver.org).
 ## [0.1.0] - 2017-04-06
 ### Added
 - Initial code.
+
+[Unreleased]: https://github.com/smitchell556/cuttlepool/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/smitchell556/cuttlepool/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/smitchell556/cuttlepool/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/smitchell556/cuttlepool/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/smitchell556/cuttlepool/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/smitchell556/cuttlepool/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/smitchell556/cuttlepool/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/smitchell556/cuttlepool/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/smitchell556/cuttlepool/compare/v0.1.0...v0.2.0

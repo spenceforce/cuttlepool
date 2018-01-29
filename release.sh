@@ -108,6 +108,15 @@ function prepare_development {
 	exit 1
     fi
 
+    # Update version compare link.
+    sed -i "/\[$2\]:/i\[$UNRELEASED\]: https://github.com/smitchell556/cuttlepool/compare/v${$2}...HEAD" CHANGELOG.md
+    if [ $? -ne 0 ]
+    then
+	git checkout HEAD --CHANGELOG.md
+	echo "release: Problem updating CHANGELOG.md for development." >&2
+	exit 1
+    fi
+
     # Update version.
     sed -i "s/$2/$DEV_VERSION/" cuttlepool.py
     if [ $? -ne 0 ]
@@ -186,15 +195,25 @@ VERSION=${DEV_VERSION%.*}
 
 # Begin release process.
 
-# Update changelog.
-count=$(gawk -v old="\\\\[$UNRELEASED\\\\]" -v new="[$VERSION] - $DATE" '{ count+=gsub(old, new) } END{ print count }' CHANGELOG.md)
-if [ $count -ne 1 ]
+# Update changelog unreleased header.
+sed -i "s/## \[$UNRELEASED\]/## \[$VERSION\] - $DATE/" CHANGELOG.md
+if [ $? -ne 0 ]
 then
-    echo "release: Improper number of replacements in CHANGELOG.md $count" >&2
+    git checkout HEAD -- CHANGELOG.md
+    echo "release: Problem updating CHANGELOG.md." >&2
     exit 1
 fi
 
-gawk -i inplace -v old="\\\\[$UNRELEASED\\\\]" -v new="[$VERSION] - $DATE" '{ gsub(old, new) }; { print }' CHANGELOG.md
+# Update version compare link.
+sed -i "s/\[$UNRELEASED\]/\[$VERSION\]/" CHANGELOG.md
+if [ $? -ne 0 ]
+then
+    git checkout HEAD -- CHANGELOG.md
+    echo "release: Problem updating CHANGELOG.md." >&2
+    exit 1
+fi
+
+sed -i "s/...HEAD/...$VERSION/" CHANGELOG.md
 if [ $? -ne 0 ]
 then
     git checkout HEAD -- CHANGELOG.md
@@ -203,13 +222,7 @@ then
 fi
 
 # Update version.
-count=$(gawk -v old="__version__ = [\"']${VERSION}-dev[\"']" -v new="__version__ = '${VERSION}'" '{ count+=gsub(old, new) } END{ print count }' cuttlepool.py)
-if [ $count -ne 1 ]
-then
-    echo "release: Improper number of replacements in cuttlepool.py $count" >&2
-    exit 1
-fi
-gawk -i inplace -v old="__version__ = [\"']${VERSION}-dev[\"']" -v new="__version__ = '${VERSION}'" '{ gsub(old, new) }; { print }' cuttlepool.py
+sed -i "s/${VERSION}-dev/$VERSION/" cuttlepool.py
 if [ $? -ne 0 ]
 then
     git checkout HEAD -- CHANGELOG.md cuttlepool.py
