@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com) and this
 project adheres to [Semantic Versioning](http://semver.org).
 
 ## [Unreleased]
+### Changed
+- Make `CAPACITY`, `OVERFLOW`, and `TIMEOUT` "internal" with `_` signifier.
+- `_CAPACITY` is now `1`.
+- `_OVERFLOW` is now `0`.
 
 ## [0.6.0] - 2018-01-28
 ### Changed
