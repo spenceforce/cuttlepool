@@ -27,11 +27,11 @@ class CuttlePool(object):
     A connection pool for SQL databases.
 
     :param func connect: The ``connect`` function of the chosen sql driver.
-    :param int capacity: Max number of connections in pool. Defaults to ``5``.
+    :param int capacity: Max number of connections in pool. Defaults to ``1``.
     :param int timeout: Time in seconds to wait for connection. Defaults to
                         ``None``.
     :param int overflow: The number of extra connections that can be made if
-                         the pool is exhausted. Defaults to ``1``.
+                         the pool is exhausted. Defaults to ``0``.
     :param \**kwargs: Connection arguments for the underlying database
                       connector.
 
