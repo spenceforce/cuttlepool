@@ -86,7 +86,7 @@ project adheres to [Semantic Versioning](http://semver.org).
   returning a `PoolConnection` and if the ping fails, the connection is
   replaced.
 
-## [0.1.0] - 2017-04-06
+## 0.1.0 - 2017-04-06
 ### Added
 - Initial code.
 
