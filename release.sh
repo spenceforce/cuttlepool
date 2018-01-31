@@ -100,7 +100,7 @@ function prepare_development {
     echo -e "prepare_development\t$1\t$2" > $RESUME
     DEV_VERSION=$(new_version $1 $2)
     # Update changelog.
-    sed -i "/\[$2\]/i## [$UNRELEASED]\n" CHANGELOG.md
+    sed -i "/## \[$2\]/i## \[$UNRELEASED\]\n" CHANGELOG.md
     if [ $? -ne 0 ]
     then
 	git checkout HEAD -- CHANGELOG.md
@@ -109,10 +109,10 @@ function prepare_development {
     fi
 
     # Update version compare link.
-    sed -i "/\[$2\]:/i\[$UNRELEASED\]: https://github.com/smitchell556/cuttlepool/compare/v${$2}...HEAD" CHANGELOG.md
+    sed -i "/\[$2\]:/i\[$UNRELEASED\]: https:\/\/github\.com\/smitchell556\/cuttlepool\/compare\/v${2}\.\.\.HEAD" CHANGELOG.md
     if [ $? -ne 0 ]
     then
-	git checkout HEAD --CHANGELOG.md
+	git checkout HEAD -- CHANGELOG.md
 	echo "release: Problem updating CHANGELOG.md for development." >&2
 	exit 1
     fi
@@ -213,7 +213,7 @@ then
     exit 1
 fi
 
-sed -i "s/...HEAD/...$VERSION/" CHANGELOG.md
+sed -i "s/...HEAD/...v$VERSION/" CHANGELOG.md
 if [ $? -ne 0 ]
 then
     git checkout HEAD -- CHANGELOG.md
