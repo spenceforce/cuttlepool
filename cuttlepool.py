@@ -282,8 +282,8 @@ class PoolConnection(object):
         if not isinstance(connection, pool._Connection):
             raise ConnectionTypeError('Improper connection object')
 
-        self._connection = connection
-        self._pool = pool
+        object.__setattr__(self, '_connection', connection)
+        object.__setattr__(self, '_pool', pool)
 
     def __enter__(self):
         return self
@@ -299,7 +299,7 @@ class PoolConnection(object):
 
     def __setattr__(self, name, value):
         """Sets attributes of connection object."""
-        if name not in ['close', '_connection', '_pool']:
+        if name not in self.__dict__:
             setattr(self._connection, name, value)
         else:
             object.__setattr__(self, name, value)
