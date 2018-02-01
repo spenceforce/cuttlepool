@@ -291,20 +291,18 @@ class PoolConnection(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
-    def __getattr__(self, attr):
+    def __getattr__(self, name):
         """
         Gets attributes of connection object.
         """
-        if attr != 'close':
-            return getattr(self._connection, attr)
+        return getattr(self._connection, name)
 
-    def __setattr__(self, attr, value):
+    def __setattr__(self, name, value):
         """Sets attributes of connection object."""
-        if attr not in ['close', '_connection', '_pool']:
-            return setattr(self._connection, attr, value)
-
-        if attr != 'close':
-            self.__dict__[attr] = value
+        if name not in ['close', '_connection', '_pool']:
+            setattr(self._connection, name, value)
+        else:
+            object.__setattr__(self, name, value)
 
     def close(self):
         """

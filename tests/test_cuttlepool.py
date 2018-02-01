@@ -22,7 +22,7 @@ class MockPool(CuttlePool):
 @pytest.fixture()
 def pool():
     """A CuttlePool object."""
-    p = MockPool(mocksql.connect)
+    p = MockPool(mocksql.connect, capacity=5, overflow=1)
     yield p
     p.empty_pool()
 
@@ -215,6 +215,7 @@ def test_poolconnection_getattr_setattr(connection):
     assert 'one' not in connection.__dict__
     assert connection._connection.one == 1
     assert 'one' in connection._connection.__dict__
+    assert connection.one == connection._connection.one
 
 
 def test_close(pool):
