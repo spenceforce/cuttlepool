@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com) and this
 project adheres to [Semantic Versioning](http://semver.org).
 
 ## [Unreleased]
+### Added
+- ``CuttlePool`` accepts ``PoolConnection`` subclasses on instantiation as the
+  default connection wrapper.
+- ``get_connection()`` accepts ``PoolConnection`` subclasses to supersede the
+  default connection wrapper.
+
 ### Changed
 - Make `CAPACITY`, `OVERFLOW`, and `TIMEOUT` "internal" with `_` signifier.
 - `_CAPACITY` is now `1`.

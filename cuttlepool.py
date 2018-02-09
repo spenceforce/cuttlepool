@@ -39,8 +39,13 @@ class CuttlePool(object):
     :raises TypeError: If timeout is not int.
     """
 
-    def __init__(self, connect, capacity=_CAPACITY,
-                 overflow=_OVERFLOW, timeout=_TIMEOUT, **kwargs):
+    def __init__(self,
+                 connect,
+                 capacity=_CAPACITY,
+                 overflow=_OVERFLOW,
+                 timeout=_TIMEOUT,
+                 connection_wrapper=None,
+                 **kwargs):
         if capacity <= 0:
             raise ValueError('Connection pool requires a capacity of at least '
                              '1 connection')
@@ -54,6 +59,11 @@ class CuttlePool(object):
                 raise ValueError(msg)
 
         self._connect = connect
+
+        self._connection_wrapper = connection_wrapper
+        if self._connection_wrapper is None:
+            self._connection_wrapper = PoolConnection
+
         self._connection_arguments = kwargs
         # The class of the connection object which will be set when the first
         # connection is requested.
@@ -157,7 +167,7 @@ class CuttlePool(object):
         with self.lock:
             self._reference_pool = []
 
-    def get_connection(self):
+    def get_connection(self, connection_wrapper=None):
         """
         Returns a ``PoolConnection`` object. This method will try to retrieve
         a connection in the following order. First if the pool is empty, it
@@ -176,6 +186,9 @@ class CuttlePool(object):
                                    out.
         """
         connection = None
+
+        if connection_wrapper is None:
+            connection_wrapper = self._connection_wrapper
 
         if self._pool.empty():
             self._harvest_lost_connections()
@@ -208,7 +221,7 @@ class CuttlePool(object):
         # Ensure all connections leave pool with same attributes.
         self.normalize_connection(connection)
 
-        return PoolConnection(connection, self)
+        return connection_wrapper(connection, self)
 
     def normalize_connection(self, connection):
         """

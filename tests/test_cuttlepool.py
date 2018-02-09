@@ -19,6 +19,10 @@ class MockPool(CuttlePool):
         return connection.open
 
 
+class SubConnection(PoolConnection):
+    pass
+
+
 @pytest.fixture()
 def pool():
     """A CuttlePool object."""
@@ -64,6 +68,26 @@ def test_improper_timeout():
 
     with pytest.raises(TypeError):
         MockPool(mocksql.connect, timeout=-0.1)
+
+
+def test_connection_wrapper():
+    """
+    Tests the proper PoolConnection subclass is returned from
+    ``get_connection()``.
+    """
+    pool = MockPool(mocksql.connect, connection_wrapper=SubConnection)
+    con = pool.get_connection()
+    assert isinstance(con, SubConnection)
+
+
+def test_connection_wrapper_get_connection():
+    """
+    Tests the proper PoolConnection subclass is returned from
+    ``get_connection()``.
+    """
+    pool = MockPool(mocksql.connect)
+    con = pool.get_connection(connection_wrapper=SubConnection)
+    assert isinstance(con, SubConnection)
 
 
 def test_make_connection(pool):
