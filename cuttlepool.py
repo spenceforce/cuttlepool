@@ -29,11 +29,12 @@ class CuttlePool(object):
     :param func connect: The ``connect`` function of the chosen sql driver.
     :param int capacity: Max number of connections in pool. Defaults to ``1``.
     :param int timeout: Time in seconds to wait for connection. Defaults to
-                        ``None``.
+        ``None``.
     :param int overflow: The number of extra connections that can be made if
-                         the pool is exhausted. Defaults to ``0``.
+        the pool is exhausted. Defaults to ``0``.
+    :param connection_wrapper: A PoolConnection subclass.
     :param \**kwargs: Connection arguments for the underlying database
-                      connector.
+        connector.
 
     :raises ValueError: If capacity <= 0 or overflow < 0 or timeout < 0.
     :raises TypeError: If timeout is not int.
@@ -180,10 +181,11 @@ class CuttlePool(object):
         Fifth if the connection is closed, a new connection is created to
         replace it.
 
+        :param connection_wrapper: A PoolConnection subclass.
         :return: A ``PoolConnection`` object.
 
         :raises PoolDepletedError: If attempt to get connection fails or times
-                                   out.
+            out.
         """
         connection = None
 
@@ -243,7 +245,7 @@ class CuttlePool(object):
         :param obj connection: A ``Connection`` object.
 
         :return: A bool indicating if the connection is open (``True``) or
-                 closed (``False``).
+            closed (``False``).
         """
         warnings.warn('Failing to implement `ping()` can result in unwanted '
                       'behavior.')
