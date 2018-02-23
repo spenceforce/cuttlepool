@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Cuttle Pool class.
+Cuttle Pool.
 
 :license: BSD 3-clause, see LICENSE for details.
 """
@@ -23,34 +23,33 @@ _TIMEOUT = None
 
 class CuttlePool(object):
     """
-    A connection pool for SQL databases.
+    A resource pool.
 
-    :param func connect: The ``connect`` function of the chosen sql driver.
-    :param int capacity: Max number of connections in pool.
-    :param int timeout: Time in seconds to wait for connection. Defaults to
+    :param func factory: A factory that produces the desired resource.
+    :param int capacity: Max number of resource instances in the pool.
+    :param int overflow: The number of extra resource instances that can be
+        made if the pool is exhausted. Defaults to ``0``.
+    :param int timeout: Time in seconds to wait for a resource. Defaults to
         ``None``.
-    :param int overflow: The number of extra connections that can be made if
-        the pool is exhausted. Defaults to ``0``.
-    :param connection_wrapper: A PoolConnection subclass.
-    :param \**kwargs: Connection arguments for the underlying database
-        connector.
+    :param resource_wrapper: A Resource subclass.
+    :param \**kwargs: Keyword arguments that are passed to ``factory`` when
+        a resource instance is created.
 
     :raises ValueError: If capacity <= 0 or overflow < 0 or timeout < 0.
-    :raises TypeError: If timeout is not int.
+    :raises TypeError: If timeout is not int or ``None``.
     """
 
     def __init__(self,
-                 connect,
+                 factory,
                  capacity,
                  overflow=_OVERFLOW,
                  timeout=_TIMEOUT,
-                 connection_wrapper=None,
+                 resource_wrapper=None,
                  **kwargs):
         if capacity <= 0:
-            raise ValueError('Connection pool requires a capacity of at least '
-                             '1 connection')
+            raise ValueError('CuttlePool requires a minimum capacity of 1')
         if overflow < 0:
-            raise ValueError('Pool overflow must be non negative')
+            raise ValueError('Overflow must be non negative integer')
         if timeout is not None:
             msg = 'Timeout must be non negative integer'
             if type(timeout) != int:
@@ -58,46 +57,38 @@ class CuttlePool(object):
             if timeout < 0:
                 raise ValueError(msg)
 
-        self._connect = connect
-
-        self._connection_wrapper = connection_wrapper
-        if self._connection_wrapper is None:
-            self._connection_wrapper = PoolConnection
-
-        self._connection_arguments = kwargs
-        # The class of the connection object which will be set when the first
-        # connection is requested.
-
         self._capacity = capacity
         self._overflow = overflow
         self._timeout = timeout
 
+        self._factory = factory
+        self._resource_wrapper = resource_wrapper or Resource
+        self._factory_arguments = kwargs
+
         self._pool = queue.Queue(self._capacity)
         self._reference_pool = []
 
-        # Required for locking the connection pool in multi-threaded
+        # Required for locking the resource pool in multi-threaded
         # environments.
         self.lock = threading.RLock()
-
-    def __del__(self):
-        self.empty_pool()
 
     @property
     def _maxsize(self):
         """
-        The maximum possible number of connections that can exist at any one
-        time.
+        The maximum possible number of resource instances that can exist at any
+        one time.
         """
         return self._capacity + self._overflow
 
     @property
     def _size(self):
         """
-        The number of active connections made by the connection pool.
+        The number of existing resource instances that have been made by the
+        pool.
 
-        :note: This is not the number of connections *in* the pool, but the
-               number of existing connections. This includes connections in the
-               pool and connections in use.
+        :note: This is not the number of resources *in* the pool, but the
+            number of existing resources. This includes resources in the
+            pool and resources in use.
 
         .. warning:: This is not threadsafe. ``_size`` can change when context
                      switches to another thread.
@@ -107,139 +98,144 @@ class CuttlePool(object):
 
     @property
     def connection_arguments(self):
-        """
-        Returns a copy of the connection arguments used to create connections.
-        """
-        return self._connection_arguments.copy()
+        """For compatibility with older versions, will be removed in 1.0."""
+        warnings.warn(('connection_arguments is deprecated in favor of '
+                       'factory_arguments and will be removed in 1.0'),
+                      DeprecationWarning)
+        return self.factory_arguments
 
-    def _make_connection(self):
+    @property
+    def factory_arguments(self):
         """
-        Returns a connection object.
+        Returns a copy of the factory arguments used to create a resource.
         """
-        connection = self._connect(**self._connection_arguments)
+        return self._factory_arguments.copy()
+
+    def _make_resource(self):
+        """
+        Returns a resource instance.
+        """
+        resource = self._factory(**self._factory_arguments)
 
         with self.lock:
-            self._reference_pool.append(connection)
+            self._reference_pool.append(resource)
 
-        return connection
+        return resource
 
-    def _harvest_lost_connections(self):
+    def _harvest_lost_resources(self):
         """
-        Returns lost connections to pool.
+        Returns lost resources to pool.
         """
-        # A connection should be referenced by 3 things at any given time,
+        # A resource should be referenced by 3 things at any given time,
         # ``_reference_pool``, ``sys.getrefcount`` (it's referenced by
         # sys.getrefcount when sys.getrefcount is called), and either a
-        # ``PoolConnection`` or ``_pool``.# If the refcount is less than 3 this
+        # ``Resource`` or ``_pool``. If the refcount is less than 3 this
         # means it's only referenced by ``_reference_pool`` and
         # ``sys.getrefcount`` and should be returned to the pool. Iterating over
         # ``_reference_pool`` by index instead of directly was chosen to prevent
-        # additional references to the connection objects from being made, which
+        # additional references to the resource objects from being made, which
         # would further cloud the refcount.
         with self.lock:
             for idx in range(self._size):
                 if sys.getrefcount(self._reference_pool[idx]) < 3:
-                    self.put_connection(self._reference_pool[idx])
-
-    def empty_pool(self):
-        """
-        Closes and removes all connections associated with the pool.
-
-        .. warning:: This function is not safe and will close any connection
-                     in use *outside* of the pool as well as those in the
-                     pool.
-        """
-        with self.lock:
-            for con in self._reference_pool:
-                if self.ping(con):
-                    con.close()
-
-        while not self._pool.empty():
-            try:
-                self._pool.get_nowait()
-            except queue.Empty:
-                break
-
-        with self.lock:
-            self._reference_pool = []
+                    self.put_resource(self._reference_pool[idx])
 
     def get_connection(self, connection_wrapper=None):
+        """For compatibility with older versions, will be removed in 1.0."""
+        warnings.warn(('get_connection() is deprecated in favor of '
+                       'get_resource() and will be removed in 1.0'),
+                      DeprecationWarning)
+        return self.get_resource(connection_wrapper)
+
+    def get_resource(self, resource_wrapper=None):
         """
-        Returns a ``PoolConnection`` object. This method will try to retrieve
-        a connection in the following order. First if the pool is empty, it
-        will return any unreferenced connections back to the pool. Second it
-        will attempt to get a connection from the pool without a timeout. Third
-        it will create a new connection if the maximum number of open
-        connections hasn't been exceeded. Fourth it will try to get a
-        connection from the pool with the specified timeout and will finally
-        raise an error if the timeout is exceeded without finding a connection.
-        Fifth if the connection is closed, a new connection is created to
+        Returns a ``Resource`` instance. This method will try to retrieve
+        a resource in the following order. First if the pool is empty, it
+        will return any unreferenced resources back to the pool. Second it
+        will attempt to get a resource from the pool without a timeout. Third
+        it will create a new resource if the maximum number of open
+        resources hasn't been exceeded. Fourth it will try to get a
+        resource from the pool with the specified timeout and will finally
+        raise an error if the timeout is exceeded without finding a resource.
+        Fifth if the resource is closed, a new resource is created to
         replace it.
 
-        :param connection_wrapper: A PoolConnection subclass.
-        :return: A ``PoolConnection`` object.
+        :param resource_wrapper: A Resource subclass.
+        :return: A ``Resource`` instance.
 
-        :raises PoolDepletedError: If attempt to get connection fails or times
+        :raises PoolDepletedError: If attempt to get resource fails or times
             out.
         """
-        connection = None
+        resource = None
 
-        if connection_wrapper is None:
-            connection_wrapper = self._connection_wrapper
+        if resource_wrapper is None:
+            resource_wrapper = self._resource_wrapper
 
         if self._pool.empty():
-            self._harvest_lost_connections()
+            self._harvest_lost_resources()
 
         try:
-            connection = self._pool.get_nowait()
+            resource = self._pool.get_nowait()
 
         except queue.Empty:
             if self._size < self._maxsize:
-                connection = self._make_connection()
+                resource = self._make_resource()
 
-        if connection is None:
-            # Could not find or make connection, so must wait for a connection
+        if resource is None:
+            # Could not find or make resource, so must wait for a resource
             # to be returned to the pool.
             try:
-                connection = self._pool.get(timeout=self._timeout)
+                resource = self._pool.get(timeout=self._timeout)
             except queue.Empty:
                 pass
 
-        if connection is None:
-            raise PoolDepletedError('Could not get connection, the pool is '
+        if resource is None:
+            raise PoolDepletedError('Could not get resource, the pool is '
                                     'depleted')
 
-        # Ensure connection is active.
-        if not self.ping(connection):
+        # Ensure resource is active.
+        if not self.ping(resource):
             with self.lock:
-                self._reference_pool.remove(connection)
-            connection = self._make_connection()
+                self._reference_pool.remove(resource)
+            resource = self._make_resource()
 
-        # Ensure all connections leave pool with same attributes.
-        self.normalize_connection(connection)
+        # Ensure all resources leave pool with same attributes.
+        # ``normalize_connection()`` is used since it calls
+        # ``normalize_resource()``, so if a user implements either one, the
+        # resource will still be normalized. This will be changed in 1.0 to
+        # call ``normalize_resource()`` when ``normalize_connection()`` is
+        # removed.
+        self.normalize_connection(resource)
 
-        return connection_wrapper(connection, self)
+        return resource_wrapper(resource, self)
 
     def normalize_connection(self, connection):
+        """For compatibility with older versions, will be removed in 1.0."""
+        warnings.warn(('normalize_connection is deprecated in favor of '
+                       'normalize_resource and will be removed in 1.0'),
+                      DeprecationWarning)
+        return self.normalize_resource(connection)
+
+    def normalize_resource(self, resource):
         """
         A user implemented function that resets the properties of the
-        ``Connection`` object. This prevents unwanted behavior from a
-        connection retrieved from the pool as it could have been changed when
-        previously used.
+        resource instance that was created by `factory`. This prevents
+        unwanted behavior from a resource retrieved from the pool as it could
+        have been changed when previously used.
 
-        :param obj connection: A ``Connection`` object.
+        :param obj resource: A resource instance.
         """
-        warnings.warn('Failing to implement `normalize_connection()` can '
+        warnings.warn('Failing to implement `normalize_resource()` can '
                       'result in unwanted behavior.')
 
-    def ping(self, connection):
+    def ping(self, resource):
         """
-        A user implemented function that ensures the ``Connection`` object is
+        A user implemented function that ensures the ``Resource`` object is
         open.
 
-        :param obj connection: A ``Connection`` object.
+        :param obj resource: A ``Resource`` object.
 
-        :return: A bool indicating if the connection is open (``True``) or
+        :return: A bool indicating if the resource is open (``True``) or
             closed (``False``).
         """
         warnings.warn('Failing to implement `ping()` can result in unwanted '
@@ -247,49 +243,53 @@ class CuttlePool(object):
         return True
 
     def put_connection(self, connection):
+        """For compatibility with older versions, will be removed in 1.0."""
+        warnings.warn(('put_connection is deprecated in favor of '
+                       'put_resource and will be removed in 1.0'),
+                      DeprecationWarning)
+        return self.put_resource(connection)
+
+    def put_resource(self, resource):
         """
-        Adds a connection back to the pool.
+        Adds a resource back to the pool or discards it if the pool is full.
 
-        :param connection: A connection object.
+        :param resource: A resource object.
 
-        :raises ConnectionTypeError: If improper connection object.
-        :raises UnknownConnectionError: If connection was not made by the
+        :raises ResourceTypeError: If improper resource object.
+        :raises UnknownResourceError: If resource was not made by the
                                         pool.
         """
         with self.lock:
-            if connection not in self._reference_pool:
-                raise UnknownConnectionError('Connection returned to pool was '
+            if resource not in self._reference_pool:
+                raise UnknownResourceError('Resource returned to pool was '
                                              'not created by pool')
 
         try:
-            self._pool.put_nowait(connection)
+            self._pool.put_nowait(resource)
 
         except queue.Full:
             with self.lock:
-                self._reference_pool.remove(connection)
-
-            if self.ping(connection):
-                connection.close()
+                self._reference_pool.remove(resource)
 
 
-class PoolConnection(object):
+class Resource(object):
     """
-    A wrapper around a connection object.
+    A wrapper around a resource object.
 
-    :param connection: A connection object.
-    :param pool: A connection pool.
+    :param resource: A resource object.
+    :param pool: A resource pool.
 
     :raises PoolTypeError: If improper pool object.
-    :raises ConnectionTypeError: If improper connection object.
+    :raises ResourceTypeError: If improper resource object.
     """
 
-    def __init__(self, connection, pool):
+    def __init__(self, resource, pool):
         if not isinstance(pool, CuttlePool):
             raise PoolTypeError('Improper pool object')
-        if connection not in pool._reference_pool:
-            raise UnknownConnectionError('Improper connection object')
+        if resource not in pool._reference_pool:
+            raise UnknownResourceError('Improper resource object')
 
-        object.__setattr__(self, '_connection', connection)
+        object.__setattr__(self, '_resource', resource)
         object.__setattr__(self, '_pool', pool)
 
     def __enter__(self):
@@ -300,24 +300,24 @@ class PoolConnection(object):
 
     def __getattr__(self, name):
         """
-        Gets attributes of connection object.
+        Gets attributes of resource object.
         """
-        return getattr(self._connection, name)
+        return getattr(self._resource, name)
 
     def __setattr__(self, name, value):
-        """Sets attributes of connection object."""
+        """Sets attributes of resource object."""
         if name not in self.__dict__:
-            setattr(self._connection, name, value)
+            setattr(self._resource, name, value)
         else:
             object.__setattr__(self, name, value)
 
     def close(self):
         """
-        Returns the connection to the connection pool.
+        Returns the resource to the resource pool.
         """
-        if self._connection is not None:
-            self._pool.put_connection(self._connection)
-            self._connection = None
+        if self._resource is not None:
+            self._pool.put_resource(self._resource)
+            self._resource = None
             self._pool = None
 
 
@@ -329,14 +329,36 @@ class PoolDepletedError(CuttlePoolError):
     """Exception raised when pool timeouts."""
 
 
-class UnknownConnectionError(CuttlePoolError):
+class UnknownResourceError(CuttlePoolError):
     """
-    Exception raised when a connection is returned to the pool that was not
+    Exception raised when a resource is returned to the pool that was not
     made by the pool.
     """
 
 
 class PoolTypeError(CuttlePoolError):
     """
-    Exception raised when the object is not the proper connection pool.
+    Exception raised when the object is not the proper resource pool.
     """
+
+
+class PoolConnection(Resource):
+    """For compatibility with older versions, will be removed in 1.0."""
+    def __init__(*args, **kwargs):
+        warnings.warn(('PoolConnection is deprecated in favor of Resource and '
+                       'will be removed in 1.0'),
+                      DeprecationWarning)
+        super(PoolConnection, self).__init__(*args, **kwargs)
+
+
+class UnknownConnectionError(CuttlePoolError):
+    """
+    Exception raised when a connection is returned to the pool that was not
+    made by the pool.
+
+    For compatibility with older versions, will be removed in 1.0.
+    """
+    def __init__(self, *args, **kwargs):
+        warnings.warn(('UnknownConnectionError is deprecated in favor of '
+                       'UnknownResourceError and will be removed in 1.0'),
+                      DeprecationWarning)

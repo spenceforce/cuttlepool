@@ -7,9 +7,18 @@ project adheres to [Semantic Versioning](http://semver.org).
 ## [Unreleased]
 ### Changed
 - `capacity` no longer has a default argument.
+- Changed module from connection pool to a general purpose resource pool.
+- `PoolConnection` class has been renamed `Resource`.
+- `connect` parameter for `CuttlePool` class has been renamed `factory`.
+- `connection_arguments` has been renamed `factory_arguments`.
+- `get_connection` has been renamed `get_resource`.
+- `normalize_connection` has been renamed `normalize_resource`.
+- `put_connection` has been renamed `put_resource`.
 
 ### Removed
 - `ConnectionTypeError` removed.
+- `empty_pool()` is no longer usable for general purpose resource pools since
+  it's unknown how to teardown a resource.
 
 ## [0.7.0] - 2018-02-09
 ### Added

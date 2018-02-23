@@ -2,242 +2,241 @@
 """
 CuttlePool tests.
 """
+import gc
 import threading
 import time
 
 import pytest
 
-from cuttlepool import CuttlePool, PoolConnection, PoolDepletedError
-import mocksql
+from cuttlepool import CuttlePool, Resource, PoolDepletedError
+import mockresource
 
 
 class MockPool(CuttlePool):
-    def normalize_connection(self, connection):
+    def normalize_resource(self, resource):
         pass
 
-    def ping(self, connection):
-        return connection.open
+    def ping(self, resource):
+        return resource.open
 
 
-class SubConnection(PoolConnection):
+class SubResource(Resource):
     pass
 
 
 @pytest.fixture()
 def pool():
     """A CuttlePool object."""
-    p = MockPool(mocksql.connect, capacity=5, overflow=1)
-    yield p
-    p.empty_pool()
+    p = MockPool(mockresource.factory, capacity=5, overflow=1)
+    return p
 
 
 @pytest.fixture()
-def connection(pool):
-    """A PoolConnection object."""
-    c = pool.get_connection()
-    yield c
-    c.close()
+def resource(pool):
+    """A Resource object."""
+    r = pool.get_resource()
+    yield r
+    r.close()
 
 
 def test_nonpositive_capacity():
     """Tests error is raised when nonpositive capacity is specified."""
     with pytest.raises(ValueError):
-        MockPool(mocksql.connect, capacity=0)
+        MockPool(mockresource.factory, capacity=0)
 
 
 def test_negative_overflow():
     """Tests error is raised when negative overflow is specified."""
     with pytest.raises(ValueError):
-        MockPool(mocksql.connect, capacity=1, overflow=-1)
+        MockPool(mockresource.factory, capacity=1, overflow=-1)
 
 
 def test_improper_timeout():
     """Tests error is raised for improper timeout argument."""
     with pytest.raises(ValueError):
-        MockPool(mocksql.connect, capacity=1, timeout=-1)
+        MockPool(mockresource.factory, capacity=1, timeout=-1)
 
     with pytest.raises(TypeError):
-        MockPool(mocksql.connect, capacity=1, timeout=-0.1)
+        MockPool(mockresource.factory, capacity=1, timeout=-0.1)
 
 
-def test_connection_wrapper():
+def test_resource_wrapper():
     """
-    Tests the proper PoolConnection subclass is returned from
-    ``get_connection()``.
+    Tests the proper Resource subclass is returned from ``get_resource()``.
     """
-    pool = MockPool(mocksql.connect, capacity=1, connection_wrapper=SubConnection)
-    con = pool.get_connection()
-    assert isinstance(con, SubConnection)
+    pool = MockPool(mockresource.factory, capacity=1, resource_wrapper=SubResource)
+    r = pool.get_resource()
+    assert isinstance(r, SubResource)
 
 
-def test_connection_wrapper_get_connection():
+def test_resource_wrapper_get_resource():
     """
-    Tests the proper PoolConnection subclass is returned from
-    ``get_connection()``.
+    Tests the proper Resource subclass is returned from ``get_resource()``.
     """
-    pool = MockPool(mocksql.connect, capacity=1)
-    con = pool.get_connection(connection_wrapper=SubConnection)
-    assert isinstance(con, SubConnection)
+    pool = MockPool(mockresource.factory, capacity=1)
+    r = pool.get_resource(resource_wrapper=SubResource)
+    assert isinstance(r, SubResource)
 
 
-def test_make_connection(pool):
+def test_make_resource(pool):
     """
-    Tests the connection object returned from _make_connection is the
+    Tests the resource object returned from _make_resource is the proper class
+    instance.
+    """
+    r = pool._make_resource()
+    assert isinstance(r, mockresource.MockResource)
+
+
+def test_harvest_lost_resources(pool):
+    """Tests unreferenced resources are returned to the pool."""
+    def get_resource_id():
+        """
+        Ensures ``Resource`` falls out of scope before calling
+        ``_harvest_lost_resources()``.
+        """
+        return id(pool.get_resource()._resource)
+    r_id = get_resource_id()
+    # Run garbage collection to ensure ``Resource`` created in
+    # ``get_resource_id()`` is destroyed.
+    gc.collect()
+    pool._harvest_lost_resources()
+    assert r_id == id(pool.get_resource()._resource)
+
+
+def test_get_resource(pool):
+    """
+    Tests the resource object returned from get_resource is the
     proper class instance.
     """
-    con = pool._make_connection()
-    assert isinstance(con, mocksql.MockConnection)
+    r = pool.get_resource()
+    assert isinstance(r, Resource)
 
 
-def test_harvest_lost_connections(pool):
-    """Tests unreferenced connections are returned to the pool."""
-    con_id = id(pool.get_connection())
-    pool._harvest_lost_connections()
-    assert con_id == id(pool.get_connection())
-
-
-def test_empty_pool(pool):
-    """Tests empty_pool closes the connections and throws them away."""
-    con = pool.get_connection()
-    pool.empty_pool()
-    assert con.open is False
-    assert pool._size == 0
-
-
-def test_get_connection(pool):
+def test_get_resource_overflow(pool):
     """
-    Tests the connection object returned from get_connection is the
-    proper class instance.
+    Tests the pool creates proper number of overflow resources properly.
     """
-    con = pool.get_connection()
-    assert isinstance(con, PoolConnection)
-
-
-def test_get_connection_overflow(pool):
-    """
-    Tests the pool creates proper number of overflow connections properly.
-    """
-    cons = []
+    rs = []
     for __ in range(pool._capacity):
-        cons.append(pool.get_connection())
+        rs.append(pool.get_resource())
 
-    con = pool.get_connection()
+    r = pool.get_resource()
     assert pool._size == pool._maxsize
 
-    con.close()
-    for con in cons:
-        con.close()
+    r.close()
+    for r in rs:
+        r.close()
 
     assert pool._size == pool._pool.qsize() == pool._capacity
 
 
-def test_get_connection_depleted(pool):
-    """Tests the pool will return a connection once one is available."""
+def test_get_resource_depleted(pool):
+    """Tests the pool will return a resource once one is available."""
     def worker(pool):
-        con = pool.get_connection()
-        time.sleep(3)
-        con.close()
+        r = pool.get_resource()
+        time.sleep(5)
+        r.close()
 
     for _ in range(pool._maxsize):
         t = threading.Thread(target=worker, args=(pool,))
         t.start()
 
-    time.sleep(1)
-    con = pool.get_connection()
+    time.sleep(2)
+    r = pool.get_resource()
 
 
-def test_get_connection_depleted_error():
+def test_get_resource_depleted_error():
     """Tests the pool will raise an error when depleted."""
-    pool = MockPool(mocksql.connect, capacity=1, timeout=1)
+    pool = MockPool(mockresource.factory, capacity=1, timeout=1)
     with pytest.raises(PoolDepletedError):
-        cons = []
+        rs = []
         while True:
-            cons.append(pool.get_connection())
+            rs.append(pool.get_resource())
 
 
-def test_normalize_connection():
+def test_normalize_resource():
     """
-    Tests that the normalize_connection method is properly called on
-    connections returned from get_connection.
+    Tests that the normalize_resource method is properly called on
+    resources returned from get_resource.
     """
     class Normalize(MockPool):
-        def normalize_connection(self, connection):
-            setattr(connection, 'one', 1)
+        def normalize_resource(self, resource):
+            setattr(resource, 'one', 1)
 
-    pool = Normalize(mocksql.connect, capacity=1)
-    con = pool.get_connection()
-    con_id = id(con._connection)
-    setattr(con, 'one', 2)
-    assert con.one == 2
-    con.close()
+    pool = Normalize(mockresource.factory, capacity=1)
+    r = pool.get_resource()
+    r_id = id(r._resource)
+    r.one = 2
+    assert r.one == 2
+    r.close()
 
-    con2 = pool.get_connection()
-    con2_id = id(con2._connection)
-    assert (con2.one == 1 and con_id == con2_id)
+    r2 = pool.get_resource()
+    r2_id = id(r2._resource)
+    assert (r2.one == 1 and r_id == r2_id)
 
 
 def test_ping(pool):
     """
-    Tests that the ping method is properly called on connections returned
-    from get_connection.
+    Tests that the ping method is properly called on resources returned
+    from get_resource.
     """
-    con = pool.get_connection()
-    con_id = id(con._connection)
-    con._connection.close()     # Close the underlying connection object.
-    con.close()                 # Return the connection to the pool.
+    r = pool.get_resource()
+    r_id = id(r._resource)
+    r._resource.close()     # Close the underlying resource object.
+    r.close()                 # Return the resource to the pool.
 
-    # Calling get_connection() should create a new connection object since
+    # Calling get_resource() should create a new resource object since
     # the previous one (which is the only one currently in the pool) is not
     # open.
-    con2 = pool.get_connection()
-    con2_id = id(con2._connection)
-    assert con_id != con2_id
+    r2 = pool.get_resource()
+    r2_id = id(r2._resource)
+    assert r_id != r2_id
 
 
-def test_put_connection(pool):
+def test_put_resource(pool):
     """
-    Tests that the connection is properly returned to the pool.
+    Tests that the resource is properly returned to the pool.
     """
-    con = pool.get_connection()
-    con_id = id(con._connection)
+    r = pool.get_resource()
+    r_id = id(r._resource)
     assert pool._pool.empty() is True
 
-    pool.put_connection(con._connection)
+    pool.put_resource(r._resource)
     assert pool._pool.qsize() == 1
-    assert id(pool._pool.get_nowait()) == con_id
+    assert id(pool.get_resource()._resource) == r_id
 
 
-def test_with_poolconnection(pool):
-    """Tests PoolConnection context manager."""
-    with pool.get_connection() as con:
-        assert isinstance(con, PoolConnection)
+def test_with_resource(pool):
+    """Tests Resource context manager."""
+    with pool.get_resource() as r:
+        assert isinstance(r, Resource)
 
-    assert con._connection is None
+    assert r._resource is None
 
-    con2 = pool.get_connection()
+    r2 = pool.get_resource()
 
-    with con2:
-        assert isinstance(con2, PoolConnection)
+    with r2:
+        assert isinstance(r2, Resource)
 
-    assert con2._connection is None
+    assert r2._resource is None
 
 
-def test_poolconnection_getattr_setattr(connection):
-    """Tests that attributes are set on the underlying connection object."""
-    connection.one = 1
-    assert connection.one == 1
-    assert 'one' not in connection.__dict__
-    assert connection._connection.one == 1
-    assert 'one' in connection._connection.__dict__
-    assert connection.one == connection._connection.one
+def test_resource_getattr_setattr(resource):
+    """Tests that attributes are set on the underlying resource object."""
+    resource.one = 1
+    assert resource.one == 1
+    assert 'one' not in resource.__dict__
+    assert resource._resource.one == 1
+    assert 'one' in resource._resource.__dict__
+    assert resource.one == resource._resource.one
 
 
 def test_close(pool):
-    """Tests the close method of a PoolConnection object."""
-    con = pool.get_connection()
+    """Tests the close method of a Resource object."""
+    r = pool.get_resource()
     assert pool._pool.empty() is True
 
-    con.close()
-    assert con._connection is None
-    assert con._pool is None
+    r.close()
+    assert r._resource is None
+    assert r._pool is None
     assert pool._pool.qsize() == 1
