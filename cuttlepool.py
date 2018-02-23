@@ -73,28 +73,11 @@ class CuttlePool(object):
         self.lock = threading.RLock()
 
     @property
-    def _maxsize(self):
+    def capacity(self):
         """
-        The maximum possible number of resource instances that can exist at any
-        one time.
+        The maximum capacity the pool will hold under normal circumstances.
         """
-        return self._capacity + self._overflow
-
-    @property
-    def _size(self):
-        """
-        The number of existing resource instances that have been made by the
-        pool.
-
-        :note: This is not the number of resources *in* the pool, but the
-            number of existing resources. This includes resources in the
-            pool and resources in use.
-
-        .. warning:: This is not threadsafe. ``_size`` can change when context
-                     switches to another thread.
-        """
-        with self.lock:
-            return len(self._reference_pool)
+        return self._capacity
 
     @property
     def connection_arguments(self):
@@ -111,16 +94,45 @@ class CuttlePool(object):
         """
         return self._factory_arguments.copy()
 
-    def _make_resource(self):
+    @property
+    def maxsize(self):
         """
-        Returns a resource instance.
+        The maximum possible number of resource instances that can exist at any
+        one time.
         """
-        resource = self._factory(**self._factory_arguments)
+        return self._capacity + self._overflow
 
+    @property
+    def overflow(self):
+        """
+        The number of additional resource instances the pool will create when
+        it is at capacity.
+        """
+        return self._overflow
+
+    @property
+    def size(self):
+        """
+        The number of existing resource instances that have been made by the
+        pool.
+
+        :note: This is not the number of resources *in* the pool, but the
+            number of existing resources. This includes resources in the
+            pool and resources in use.
+
+        .. warning:: This is not threadsafe. ``size`` can change when context
+                     switches to another thread.
+        """
         with self.lock:
-            self._reference_pool.append(resource)
+            return len(self._reference_pool)
 
-        return resource
+    @property
+    def timeout(self):
+        """
+        The duration to wait for a resource to be returned to the pool when the
+        pool is depleted.
+        """
+        return self._timeout
 
     def _harvest_lost_resources(self):
         """
@@ -136,9 +148,20 @@ class CuttlePool(object):
         # additional references to the resource objects from being made, which
         # would further cloud the refcount.
         with self.lock:
-            for idx in range(self._size):
+            for idx in range(self.size):
                 if sys.getrefcount(self._reference_pool[idx]) < 3:
                     self.put_resource(self._reference_pool[idx])
+
+    def _make_resource(self):
+        """
+        Returns a resource instance.
+        """
+        resource = self._factory(**self._factory_arguments)
+
+        with self.lock:
+            self._reference_pool.append(resource)
+
+        return resource
 
     def get_connection(self, connection_wrapper=None):
         """For compatibility with older versions, will be removed in 1.0."""
@@ -178,7 +201,7 @@ class CuttlePool(object):
             resource = self._pool.get_nowait()
 
         except queue.Empty:
-            if self._size < self._maxsize:
+            if self.size < self.maxsize:
                 resource = self._make_resource()
 
         if resource is None:

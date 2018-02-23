@@ -121,13 +121,13 @@ def test_get_resource_overflow(pool):
         rs.append(pool.get_resource())
 
     r = pool.get_resource()
-    assert pool._size == pool._maxsize
+    assert pool.size == pool.maxsize
 
     r.close()
     for r in rs:
         r.close()
 
-    assert pool._size == pool._pool.qsize() == pool._capacity
+    assert pool.size  == pool._capacity
 
 
 def test_get_resource_depleted(pool):
@@ -137,7 +137,7 @@ def test_get_resource_depleted(pool):
         time.sleep(5)
         r.close()
 
-    for _ in range(pool._maxsize):
+    for _ in range(pool.maxsize):
         t = threading.Thread(target=worker, args=(pool,))
         t.start()
 
@@ -199,10 +199,8 @@ def test_put_resource(pool):
     """
     r = pool.get_resource()
     r_id = id(r._resource)
-    assert pool._pool.empty() is True
 
     pool.put_resource(r._resource)
-    assert pool._pool.qsize() == 1
     assert id(pool.get_resource()._resource) == r_id
 
 
@@ -234,9 +232,7 @@ def test_resource_getattr_setattr(resource):
 def test_close(pool):
     """Tests the close method of a Resource object."""
     r = pool.get_resource()
-    assert pool._pool.empty() is True
 
     r.close()
     assert r._resource is None
     assert r._pool is None
-    assert pool._pool.qsize() == 1

@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com) and this
 project adheres to [Semantic Versioning](http://semver.org).
 
 ## [Unreleased]
+### Added
+- Public attributes `capacity`, `overflow`, `timeout`, `maxsize`, and `size`
+  on `CuttlePool` instance.
+
 ### Changed
 - `capacity` no longer has a default argument.
 - Changed module from connection pool to a general purpose resource pool.
