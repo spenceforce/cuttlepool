@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com) and this
 project adheres to [Semantic Versioning](http://semver.org).
 
 ## [Unreleased]
+### Changed
+- `capacity` no longer has a default argument.
 
 ## [0.7.0] - 2018-02-09
 ### Added
@@ -28,9 +30,6 @@ project adheres to [Semantic Versioning](http://semver.org).
 ### Fixed
 - `__del__` method calls `empty_pool()` instead of non-existent
   `_close_connections`.
-
-### Fixed
-- Make `setup.py` upload python module instead of package.
 
 ## [0.5.1] - 2018-01-04
 ### Fixed

@@ -17,7 +17,6 @@ import threading
 import warnings
 
 
-_CAPACITY = 1
 _OVERFLOW = 0
 _TIMEOUT = None
 
@@ -27,7 +26,7 @@ class CuttlePool(object):
     A connection pool for SQL databases.
 
     :param func connect: The ``connect`` function of the chosen sql driver.
-    :param int capacity: Max number of connections in pool. Defaults to ``1``.
+    :param int capacity: Max number of connections in pool.
     :param int timeout: Time in seconds to wait for connection. Defaults to
         ``None``.
     :param int overflow: The number of extra connections that can be made if
@@ -42,7 +41,7 @@ class CuttlePool(object):
 
     def __init__(self,
                  connect,
-                 capacity=_CAPACITY,
+                 capacity,
                  overflow=_OVERFLOW,
                  timeout=_TIMEOUT,
                  connection_wrapper=None,

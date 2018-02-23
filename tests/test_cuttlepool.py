@@ -58,16 +58,16 @@ def test_nonpositive_capacity():
 def test_negative_overflow():
     """Tests error is raised when negative overflow is specified."""
     with pytest.raises(ValueError):
-        MockPool(mocksql.connect, overflow=-1)
+        MockPool(mocksql.connect, capacity=1, overflow=-1)
 
 
 def test_improper_timeout():
     """Tests error is raised for improper timeout argument."""
     with pytest.raises(ValueError):
-        MockPool(mocksql.connect, timeout=-1)
+        MockPool(mocksql.connect, capacity=1, timeout=-1)
 
     with pytest.raises(TypeError):
-        MockPool(mocksql.connect, timeout=-0.1)
+        MockPool(mocksql.connect, capacity=1, timeout=-0.1)
 
 
 def test_connection_wrapper():
@@ -75,7 +75,7 @@ def test_connection_wrapper():
     Tests the proper PoolConnection subclass is returned from
     ``get_connection()``.
     """
-    pool = MockPool(mocksql.connect, connection_wrapper=SubConnection)
+    pool = MockPool(mocksql.connect, capacity=1, connection_wrapper=SubConnection)
     con = pool.get_connection()
     assert isinstance(con, SubConnection)
 
@@ -85,7 +85,7 @@ def test_connection_wrapper_get_connection():
     Tests the proper PoolConnection subclass is returned from
     ``get_connection()``.
     """
-    pool = MockPool(mocksql.connect)
+    pool = MockPool(mocksql.connect, capacity=1)
     con = pool.get_connection(connection_wrapper=SubConnection)
     assert isinstance(con, SubConnection)
 
@@ -158,7 +158,7 @@ def test_get_connection_depleted(pool):
 
 def test_get_connection_depleted_error():
     """Tests the pool will raise an error when depleted."""
-    pool = MockPool(mocksql.connect, timeout=1)
+    pool = MockPool(mocksql.connect, capacity=1, timeout=1)
     with pytest.raises(PoolDepletedError):
         cons = []
         while True:
@@ -174,7 +174,7 @@ def test_normalize_connection():
         def normalize_connection(self, connection):
             setattr(connection, 'one', 1)
 
-    pool = Normalize(mocksql.connect)
+    pool = Normalize(mocksql.connect, capacity=1)
     con = pool.get_connection()
     con_id = id(con._connection)
     setattr(con, 'one', 2)
