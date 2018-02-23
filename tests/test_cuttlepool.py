@@ -39,16 +39,6 @@ def connection(pool):
     c.close()
 
 
-def test_connection_attribute_set(pool):
-    """
-    Tests that the _connection attribute is set with the right class after a
-    connection is requested.
-    """
-    assert pool._Connection is None
-    pool.get_connection()
-    assert pool._Connection is mocksql.MockConnection
-
-
 def test_nonpositive_capacity():
     """Tests error is raised when nonpositive capacity is specified."""
     with pytest.raises(ValueError):

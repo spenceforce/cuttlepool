@@ -67,7 +67,6 @@ class CuttlePool(object):
         self._connection_arguments = kwargs
         # The class of the connection object which will be set when the first
         # connection is requested.
-        self._Connection = None
 
         self._capacity = capacity
         self._overflow = overflow
@@ -111,7 +110,7 @@ class CuttlePool(object):
         """
         Returns a copy of the connection arguments used to create connections.
         """
-        return {k: v for k, v in self._connection_arguments.items()}
+        return self._connection_arguments.copy()
 
     def _make_connection(self):
         """
@@ -120,9 +119,6 @@ class CuttlePool(object):
         connection = self._connect(**self._connection_arguments)
 
         with self.lock:
-            if self._Connection is None:
-                self._Connection = type(connection)
-
             self._reference_pool.append(connection)
 
         return connection
@@ -260,9 +256,6 @@ class CuttlePool(object):
         :raises UnknownConnectionError: If connection was not made by the
                                         pool.
         """
-        if not isinstance(connection, self._Connection):
-            raise ConnectionTypeError('Improper connection object')
-
         with self.lock:
             if connection not in self._reference_pool:
                 raise UnknownConnectionError('Connection returned to pool was '
@@ -293,8 +286,8 @@ class PoolConnection(object):
     def __init__(self, connection, pool):
         if not isinstance(pool, CuttlePool):
             raise PoolTypeError('Improper pool object')
-        if not isinstance(connection, pool._Connection):
-            raise ConnectionTypeError('Improper connection object')
+        if connection not in pool._reference_pool:
+            raise UnknownConnectionError('Improper connection object')
 
         object.__setattr__(self, '_connection', connection)
         object.__setattr__(self, '_pool', pool)
@@ -340,13 +333,6 @@ class UnknownConnectionError(CuttlePoolError):
     """
     Exception raised when a connection is returned to the pool that was not
     made by the pool.
-    """
-
-
-class ConnectionTypeError(CuttlePoolError):
-    """
-    Exception raised when the object returned to the pool is not the correct
-    type.
     """
 
 

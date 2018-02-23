@@ -8,6 +8,9 @@ project adheres to [Semantic Versioning](http://semver.org).
 ### Changed
 - `capacity` no longer has a default argument.
 
+### Removed
+- `ConnectionTypeError` removed.
+
 ## [0.7.0] - 2018-02-09
 ### Added
 - ``CuttlePool`` accepts ``PoolConnection`` subclasses on instantiation as the
