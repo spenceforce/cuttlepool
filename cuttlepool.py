@@ -12,8 +12,11 @@ try:
     import queue
 except ImportError:
     import Queue as queue
+try:
+    import threading
+except ImportError:
+    import dummy_threading as threading
 import sys
-import threading
 import warnings
 
 
@@ -285,7 +288,7 @@ class CuttlePool(object):
         with self.lock:
             if resource not in self._reference_pool:
                 raise UnknownResourceError('Resource returned to pool was '
-                                             'not created by pool')
+                                           'not created by pool')
 
         try:
             self._pool.put_nowait(resource)
@@ -381,6 +384,7 @@ class UnknownConnectionError(CuttlePoolError):
 
     For compatibility with older versions, will be removed in 1.0.
     """
+
     def __init__(self, *args, **kwargs):
         warnings.warn(('UnknownConnectionError is deprecated in favor of '
                        'UnknownResourceError and will be removed in 1.0'),
