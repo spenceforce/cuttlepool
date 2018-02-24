@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-from cuttlepool import CuttlePool, Resource, PoolDepletedError
+from cuttlepool import CuttlePool, Resource, _ResourceState, PoolDepletedError
 import mockresource
 
 
@@ -26,14 +26,21 @@ class SubResource(Resource):
 
 @pytest.fixture()
 def pool():
-    """A CuttlePool object."""
+    """A CuttlePool instance."""
     p = MockPool(mockresource.factory, capacity=5, overflow=1)
     return p
 
 
 @pytest.fixture()
+def rstate(pool):
+    """A _ResourceState instance."""
+    rs = pool._make_resource()
+    return rs
+
+
+@pytest.fixture()
 def resource(pool):
-    """A Resource object."""
+    """A Resource instance."""
     r = pool.get_resource()
     yield r
     r.close()
@@ -64,7 +71,9 @@ def test_resource_wrapper():
     """
     Tests the proper Resource subclass is returned from ``get_resource()``.
     """
-    pool = MockPool(mockresource.factory, capacity=1, resource_wrapper=SubResource)
+    pool = MockPool(mockresource.factory,
+                    capacity=1,
+                    resource_wrapper=SubResource)
     r = pool.get_resource()
     assert isinstance(r, SubResource)
 
@@ -84,7 +93,7 @@ def test_make_resource(pool):
     instance.
     """
     r = pool._make_resource()
-    assert isinstance(r, mockresource.MockResource)
+    assert isinstance(r, _ResourceState)
 
 
 def test_harvest_lost_resources(pool):
@@ -127,7 +136,7 @@ def test_get_resource_overflow(pool):
     for r in rs:
         r.close()
 
-    assert pool.size  == pool._capacity
+    assert pool.size == pool._capacity
 
 
 def test_get_resource_depleted(pool):
@@ -217,6 +226,27 @@ def test_with_resource(pool):
         assert isinstance(r2, Resource)
 
     assert r2._resource is None
+
+
+def test_resource_available(pool, rstate):
+    """
+    Tests a resource is properly tracked by a ``_ResourceState`` instance.
+    """
+    assert rstate.available()
+    r = rstate.wrap_resource(Resource)
+    assert not rstate.available()
+    del r
+    gc.collect()
+    assert rstate.available()
+
+
+def test_wrap_resource(pool, rstate):
+    """
+    Tests a resource is properly wrapped and referenced by ``_ResourceState``.
+    """
+    r = rstate.wrap_resource(Resource)
+    assert isinstance(r, Resource)
+    assert rstate._weakref() is not None
 
 
 def test_resource_getattr_setattr(resource):

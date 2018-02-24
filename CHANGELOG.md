@@ -18,6 +18,8 @@ project adheres to [Semantic Versioning](http://semver.org).
 - `get_connection` has been renamed `get_resource`.
 - `normalize_connection` has been renamed `normalize_resource`.
 - `put_connection` has been renamed `put_resource`.
+- Harvest lost resources based on weak references to resource wrappers instead
+  of using ``sys.getrefcount()`` on the resource instances themselves.
 
 ### Removed
 - `ConnectionTypeError` removed.

@@ -16,8 +16,8 @@ try:
     import threading
 except ImportError:
     import dummy_threading as threading
-import sys
 import warnings
+import weakref
 
 
 _OVERFLOW = 0
@@ -141,30 +141,21 @@ class CuttlePool(object):
         """
         Returns lost resources to pool.
         """
-        # A resource should be referenced by 3 things at any given time,
-        # ``_reference_pool``, ``sys.getrefcount`` (it's referenced by
-        # sys.getrefcount when sys.getrefcount is called), and either a
-        # ``Resource`` or ``_pool``. If the refcount is less than 3 this
-        # means it's only referenced by ``_reference_pool`` and
-        # ``sys.getrefcount`` and should be returned to the pool. Iterating over
-        # ``_reference_pool`` by index instead of directly was chosen to prevent
-        # additional references to the resource objects from being made, which
-        # would further cloud the refcount.
         with self.lock:
-            for idx in range(self.size):
-                if sys.getrefcount(self._reference_pool[idx]) < 3:
-                    self.put_resource(self._reference_pool[idx])
+            for rstate in self._reference_pool:
+                if rstate.available() and rstate not in self._pool.queue:
+                    self.put_resource(rstate.resource)
 
     def _make_resource(self):
         """
         Returns a resource instance.
         """
-        resource = self._factory(**self._factory_arguments)
+        rstate = _ResourceState(self, self._factory(**self._factory_arguments))
 
         with self.lock:
-            self._reference_pool.append(resource)
+            self._reference_pool.append(rstate)
 
-        return resource
+        return rstate
 
     def get_connection(self, connection_wrapper=None):
         """For compatibility with older versions, will be removed in 1.0."""
@@ -192,7 +183,7 @@ class CuttlePool(object):
         :raises PoolDepletedError: If attempt to get resource fails or times
             out.
         """
-        resource = None
+        rstate = None
 
         if resource_wrapper is None:
             resource_wrapper = self._resource_wrapper
@@ -201,29 +192,29 @@ class CuttlePool(object):
             self._harvest_lost_resources()
 
         try:
-            resource = self._pool.get_nowait()
+            rstate = self._pool.get_nowait()
 
         except queue.Empty:
             if self.size < self.maxsize:
-                resource = self._make_resource()
+                rstate = self._make_resource()
 
-        if resource is None:
+        if rstate is None:
             # Could not find or make resource, so must wait for a resource
             # to be returned to the pool.
             try:
-                resource = self._pool.get(timeout=self._timeout)
+                rstate = self._pool.get(timeout=self._timeout)
             except queue.Empty:
                 pass
 
-        if resource is None:
+        if rstate is None:
             raise PoolDepletedError('Could not get resource, the pool is '
                                     'depleted')
 
         # Ensure resource is active.
-        if not self.ping(resource):
+        if not self.ping(rstate.resource):
             with self.lock:
-                self._reference_pool.remove(resource)
-            resource = self._make_resource()
+                self._reference_pool.remove(rstate)
+            rstate = self._make_resource()
 
         # Ensure all resources leave pool with same attributes.
         # ``normalize_connection()`` is used since it calls
@@ -231,9 +222,9 @@ class CuttlePool(object):
         # resource will still be normalized. This will be changed in 1.0 to
         # call ``normalize_resource()`` when ``normalize_connection()`` is
         # removed.
-        self.normalize_connection(resource)
+        self.normalize_connection(rstate.resource)
 
-        return resource_wrapper(resource, self)
+        return rstate.wrap_resource(resource_wrapper)
 
     def normalize_connection(self, connection):
         """For compatibility with older versions, will be removed in 1.0."""
@@ -286,35 +277,69 @@ class CuttlePool(object):
                                         pool.
         """
         with self.lock:
-            if resource not in self._reference_pool:
+            rstate = [rs
+                      for rs in self._reference_pool
+                      if resource is rs.resource]
+
+            if rstate is []:
                 raise UnknownResourceError('Resource returned to pool was '
                                            'not created by pool')
 
         try:
-            self._pool.put_nowait(resource)
+            self._pool.put_nowait(rstate[0])
 
         except queue.Full:
             with self.lock:
-                self._reference_pool.remove(resource)
+                self._reference_pool.remove(rstate[0])
+
+
+class _ResourceState(object):
+    """
+    Track if a resource is in use.
+
+    :param resource: A resource instance.
+    :param pool: A pool instance.
+    :type pool: :class:`CuttlePool`
+    :raises PoolTypeError: If improper pool instance.
+    """
+
+    def __init__(self, pool, resource):
+        if not isinstance(pool, CuttlePool):
+            raise PoolTypeError('Improper pool object')
+
+        self.resource = resource
+        self._pool = pool
+        self._weakref = None
+
+    def available(self):
+        """Determine if resource available for use."""
+        if self._weakref is None or self._weakref() is None:
+            return True
+        return False
+
+    def wrap_resource(self, resource_wrapper):
+        """
+        Return a resource wrapped in ``resource_wrapper``.
+
+        :param resource_wrapper: A wrapper class for the resource.
+        :type resource_wrapper: ``:class: Resource``
+        :return: A wrapped resource.
+        :rtype: :class:`Resource`
+        """
+        resource = resource_wrapper(self.resource, self._pool)
+        self._weakref = weakref.ref(resource)
+        return resource
 
 
 class Resource(object):
     """
-    A wrapper around a resource object.
+    A wrapper around a resource instance.
 
-    :param resource: A resource object.
+    :param resource: A resource instance.
     :param pool: A resource pool.
-
-    :raises PoolTypeError: If improper pool object.
-    :raises ResourceTypeError: If improper resource object.
     """
 
     def __init__(self, resource, pool):
-        if not isinstance(pool, CuttlePool):
-            raise PoolTypeError('Improper pool object')
-        if resource not in pool._reference_pool:
-            raise UnknownResourceError('Improper resource object')
-
         object.__setattr__(self, '_resource', resource)
         object.__setattr__(self, '_pool', pool)
 
@@ -370,22 +395,9 @@ class PoolTypeError(CuttlePoolError):
 
 class PoolConnection(Resource):
     """For compatibility with older versions, will be removed in 1.0."""
-    def __init__(*args, **kwargs):
+
+    def __init__(self, *args, **kwargs):
         warnings.warn(('PoolConnection is deprecated in favor of Resource and '
                        'will be removed in 1.0'),
                       DeprecationWarning)
         super(PoolConnection, self).__init__(*args, **kwargs)
-
-
-class UnknownConnectionError(CuttlePoolError):
-    """
-    Exception raised when a connection is returned to the pool that was not
-    made by the pool.
-
-    For compatibility with older versions, will be removed in 1.0.
-    """
-
-    def __init__(self, *args, **kwargs):
-        warnings.warn(('UnknownConnectionError is deprecated in favor of '
-                       'UnknownResourceError and will be removed in 1.0'),
-                      DeprecationWarning)
