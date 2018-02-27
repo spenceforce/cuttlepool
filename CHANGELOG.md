@@ -23,7 +23,7 @@ project adheres to [Semantic Versioning](http://semver.org).
   of using ``sys.getrefcount()`` on the resource instances themselves.
 
 ### Removed
-- `ConnectionTypeError` removed.
+- `ConnectionTypeError`, `PoolTypeError` removed.
 - `empty_pool()` is no longer usable for general purpose resource pools since
   it's unknown how to teardown a resource.
 

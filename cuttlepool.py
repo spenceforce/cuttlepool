@@ -305,8 +305,6 @@ class _ResourceTracker(object):
     Track if a resource is in use.
 
     :param resource: A resource instance.
-
-    :raises PoolTypeError: If improper pool instance.
     """
 
     def __init__(self, resource):
@@ -386,12 +384,6 @@ class UnknownResourceError(CuttlePoolError):
     """
     Exception raised when a resource is returned to the pool that was not
     made by the pool.
-    """
-
-
-class PoolTypeError(CuttlePoolError):
-    """
-    Exception raised when the object is not the proper resource pool.
     """
 
 
