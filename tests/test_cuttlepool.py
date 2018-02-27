@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-from cuttlepool import CuttlePool, Resource, _ResourceState, PoolDepletedError
+from cuttlepool import CuttlePool, Resource, _ResourceTracker, PoolDepletedError
 import mockresource
 
 
@@ -32,10 +32,10 @@ def pool():
 
 
 @pytest.fixture()
-def rstate(pool):
-    """A _ResourceState instance."""
-    rs = pool._make_resource()
-    return rs
+def rtracker(pool):
+    """A _ResourceTracker instance."""
+    rt = pool._make_resource()
+    return rt
 
 
 @pytest.fixture()
@@ -87,13 +87,19 @@ def test_resource_wrapper_get_resource():
     assert isinstance(r, SubResource)
 
 
+def test_get_tracker(pool, rtracker):
+    """Tests the resource tracker for a resource is returned."""
+    rt = pool._get_tracker(rtracker.resource)
+    assert rt is rtracker
+
+
 def test_make_resource(pool):
     """
     Tests the resource object returned from _make_resource is the proper class
     instance.
     """
     r = pool._make_resource()
-    assert isinstance(r, _ResourceState)
+    assert isinstance(r, _ResourceTracker)
 
 
 def test_harvest_lost_resources(pool):
@@ -125,15 +131,15 @@ def test_get_resource_overflow(pool):
     """
     Tests the pool creates proper number of overflow resources properly.
     """
-    rs = []
+    rt = []
     for __ in range(pool._capacity):
-        rs.append(pool.get_resource())
+        rt.append(pool.get_resource())
 
     r = pool.get_resource()
     assert pool.size == pool.maxsize
 
     r.close()
-    for r in rs:
+    for r in rt:
         r.close()
 
     assert pool.size == pool._capacity
@@ -158,9 +164,9 @@ def test_get_resource_depleted_error():
     """Tests the pool will raise an error when depleted."""
     pool = MockPool(mockresource.factory, capacity=1, timeout=1)
     with pytest.raises(PoolDepletedError):
-        rs = []
+        rt = []
         while True:
-            rs.append(pool.get_resource())
+            rt.append(pool.get_resource())
 
 
 def test_normalize_resource():
@@ -228,25 +234,26 @@ def test_with_resource(pool):
     assert r2._resource is None
 
 
-def test_resource_available(pool, rstate):
+def test_resource_available(pool, rtracker):
     """
-    Tests a resource is properly tracked by a ``_ResourceState`` instance.
+    Tests a resource is properly tracked by a ``_ResourceTracker`` instance.
     """
-    assert rstate.available()
-    r = rstate.wrap_resource(Resource)
-    assert not rstate.available()
+    assert rtracker.available()
+    r = rtracker.wrap_resource(pool, Resource)
+    assert not rtracker.available()
     del r
     gc.collect()
-    assert rstate.available()
+    assert rtracker.available()
 
 
-def test_wrap_resource(pool, rstate):
+def test_wrap_resource(pool, rtracker):
     """
-    Tests a resource is properly wrapped and referenced by ``_ResourceState``.
+    Tests a resource is properly wrapped and referenced by
+    ``_ResourceTracker``.
     """
-    r = rstate.wrap_resource(Resource)
+    r = rtracker.wrap_resource(pool, Resource)
     assert isinstance(r, Resource)
-    assert rstate._weakref() is not None
+    assert rtracker._weakref() is not None
 
 
 def test_resource_getattr_setattr(resource):

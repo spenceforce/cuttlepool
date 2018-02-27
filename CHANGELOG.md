@@ -8,6 +8,7 @@ project adheres to [Semantic Versioning](http://semver.org).
 ### Added
 - Public attributes `capacity`, `overflow`, `timeout`, `maxsize`, and `size`
   on `CuttlePool` instance.
+- Class `_ResourceTracker` for tracking a resource in and out of a pool.
 
 ### Changed
 - `capacity` no longer has a default argument.

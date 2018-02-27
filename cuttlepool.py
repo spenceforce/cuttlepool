@@ -137,25 +137,40 @@ class CuttlePool(object):
         """
         return self._timeout
 
+    def _get_tracker(self, resource):
+        """
+        Return the resource tracker that is tracking ``resource``.
+
+        :param resource: A resource.
+        :return: A resource tracker.
+        :rtype: :class:`_ResourceTracker`
+        """
+        with self.lock:
+            for rt in self._reference_pool:
+                if resource is rt.resource:
+                    return rt
+
+        raise UnknownResourceError('Resource not created by pool')
+
     def _harvest_lost_resources(self):
         """
         Returns lost resources to pool.
         """
         with self.lock:
-            for rstate in self._reference_pool:
-                if rstate.available() and rstate not in self._pool.queue:
-                    self.put_resource(rstate.resource)
+            for rtracker in self._reference_pool:
+                if rtracker.available() and rtracker not in self._pool.queue:
+                    self.put_resource(rtracker.resource)
 
     def _make_resource(self):
         """
         Returns a resource instance.
         """
-        rstate = _ResourceState(self, self._factory(**self._factory_arguments))
+        rtracker = _ResourceTracker(self._factory(**self._factory_arguments))
 
         with self.lock:
-            self._reference_pool.append(rstate)
+            self._reference_pool.append(rtracker)
 
-        return rstate
+        return rtracker
 
     def get_connection(self, connection_wrapper=None):
         """For compatibility with older versions, will be removed in 1.0."""
@@ -183,7 +198,7 @@ class CuttlePool(object):
         :raises PoolDepletedError: If attempt to get resource fails or times
             out.
         """
-        rstate = None
+        rtracker = None
 
         if resource_wrapper is None:
             resource_wrapper = self._resource_wrapper
@@ -192,29 +207,29 @@ class CuttlePool(object):
             self._harvest_lost_resources()
 
         try:
-            rstate = self._pool.get_nowait()
+            rtracker = self._pool.get_nowait()
 
         except queue.Empty:
             if self.size < self.maxsize:
-                rstate = self._make_resource()
+                rtracker = self._make_resource()
 
-        if rstate is None:
+        if rtracker is None:
             # Could not find or make resource, so must wait for a resource
             # to be returned to the pool.
             try:
-                rstate = self._pool.get(timeout=self._timeout)
+                rtracker = self._pool.get(timeout=self._timeout)
             except queue.Empty:
                 pass
 
-        if rstate is None:
+        if rtracker is None:
             raise PoolDepletedError('Could not get resource, the pool is '
                                     'depleted')
 
         # Ensure resource is active.
-        if not self.ping(rstate.resource):
+        if not self.ping(rtracker.resource):
             with self.lock:
-                self._reference_pool.remove(rstate)
-            rstate = self._make_resource()
+                self._reference_pool.remove(rtracker)
+            rtracker = self._make_resource()
 
         # Ensure all resources leave pool with same attributes.
         # ``normalize_connection()`` is used since it calls
@@ -222,9 +237,9 @@ class CuttlePool(object):
         # resource will still be normalized. This will be changed in 1.0 to
         # call ``normalize_resource()`` when ``normalize_connection()`` is
         # removed.
-        self.normalize_connection(rstate.resource)
+        self.normalize_connection(rtracker.resource)
 
-        return rstate.wrap_resource(resource_wrapper)
+        return rtracker.wrap_resource(self, resource_wrapper)
 
     def normalize_connection(self, connection):
         """For compatibility with older versions, will be removed in 1.0."""
@@ -272,61 +287,48 @@ class CuttlePool(object):
 
         :param resource: A resource object.
 
-        :raises ResourceTypeError: If improper resource object.
         :raises UnknownResourceError: If resource was not made by the
                                         pool.
         """
-        with self.lock:
-            rstate = [rs
-                      for rs in self._reference_pool
-                      if resource is rs.resource]
-
-            if rstate is []:
-                raise UnknownResourceError('Resource returned to pool was '
-                                           'not created by pool')
+        rtracker = self._get_tracker(resource)
 
         try:
-            self._pool.put_nowait(rstate[0])
+            self._pool.put_nowait(rtracker)
 
         except queue.Full:
             with self.lock:
-                self._reference_pool.remove(rstate[0])
+                self._reference_pool.remove(rtracker)
 
 
-class _ResourceState(object):
+class _ResourceTracker(object):
     """
     Track if a resource is in use.
 
     :param resource: A resource instance.
-    :param pool: A pool instance.
-    :type pool: :class:`CuttlePool`
+
     :raises PoolTypeError: If improper pool instance.
     """
 
-    def __init__(self, pool, resource):
-        if not isinstance(pool, CuttlePool):
-            raise PoolTypeError('Improper pool object')
-
+    def __init__(self, resource):
         self.resource = resource
-        self._pool = pool
         self._weakref = None
 
     def available(self):
         """Determine if resource available for use."""
-        if self._weakref is None or self._weakref() is None:
-            return True
-        return False
+        return self._weakref is None or self._weakref() is None
 
-    def wrap_resource(self, resource_wrapper):
+    def wrap_resource(self, pool, resource_wrapper):
         """
         Return a resource wrapped in ``resource_wrapper``.
 
+        :param pool: A pool instance.
+        :type pool: :class:`CuttlePool`
         :param resource_wrapper: A wrapper class for the resource.
         :type resource_wrapper: ``:class: Resource``
         :return: A wrapped resource.
         :rtype: :class:`Resource`
         """
-        resource = resource_wrapper(self.resource, self._pool)
+        resource = resource_wrapper(self.resource, pool)
         self._weakref = weakref.ref(resource)
         return resource
 
