@@ -89,7 +89,10 @@ just like a ``sqlite3.Connection`` instance. ::
   >>> con.close()
 
 Calling ``close()`` on the resource returns it to the pool instead of closing
-it.
+it. It is not necessary to call ``close()`` though. The pool tracks resources
+using :class:`weakref.ref`, so any unreferenced resources will be collected and
+returned to the pool. It is still a good idea to call ``close()`` though, since
+explicit is better than implicit.
 
 .. note::
    Once ``close()`` is called on the resource object, it renders the

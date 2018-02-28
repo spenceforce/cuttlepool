@@ -6,9 +6,10 @@ project adheres to [Semantic Versioning](http://semver.org).
 
 ## [Unreleased]
 ### Added
-- Public attributes `capacity`, `overflow`, `timeout`, `maxsize`, and `size`
-  on `CuttlePool` instance.
+- Public attributes `capacity`, `overflow`, `timeout`, `maxsize`, `size`, and
+  `empty` on `CuttlePool` instance.
 - Class `_ResourceTracker` for tracking a resource in and out of a pool.
+- ``PoolFullError``.
 
 ### Changed
 - `capacity` no longer has a default argument.
@@ -21,6 +22,7 @@ project adheres to [Semantic Versioning](http://semver.org).
 - `put_connection` has been renamed `put_resource`.
 - Harvest lost resources based on weak references to resource wrappers instead
   of using ``sys.getrefcount()`` on the resource instances themselves.
+- ``PoolDepletedError`` is now ``PoolEmptyError``.
 
 ### Removed
 - `ConnectionTypeError`, `PoolTypeError` removed.

@@ -9,13 +9,10 @@ __version__ = '0.8.0-dev'
 
 
 try:
-    import queue
-except ImportError:
-    import Queue as queue
-try:
     import threading
 except ImportError:
     import dummy_threading as threading
+import time
 import warnings
 import weakref
 
@@ -68,12 +65,22 @@ class CuttlePool(object):
         self._resource_wrapper = resource_wrapper or Resource
         self._factory_arguments = kwargs
 
-        self._pool = queue.Queue(self._capacity)
-        self._reference_pool = []
+        # The reference queue is divided in two sections. One section is a
+        # queue of resources that are ready for use. The other section is an
+        # unordered list of resources that are currently in use and NoneType
+        # objects.
+        self._reference_queue = [None] * self.maxsize
+        self._resource_start = self._resource_end = 0
+        # _size is the number of existing resources. _available is the
+        # number of available resources.
+        self._size = self._available = 0
 
         # Required for locking the resource pool in multi-threaded
         # environments.
-        self.lock = threading.RLock()
+        self._lock = threading.RLock()
+        # Notify thread waiting for resource that the queue is not empty when
+        # a resource is returned to the pool.
+        self._not_empty = threading.Condition(self._lock)
 
     @property
     def capacity(self):
@@ -81,6 +88,12 @@ class CuttlePool(object):
         The maximum capacity the pool will hold under normal circumstances.
         """
         return self._capacity
+
+    @property
+    def empty(self):
+        """Return ``True`` if pool is empty. Not threadsafe."""
+        with self._lock:
+            return self._available == 0
 
     @property
     def connection_arguments(self):
@@ -93,7 +106,7 @@ class CuttlePool(object):
     @property
     def factory_arguments(self):
         """
-        Returns a copy of the factory arguments used to create a resource.
+        Return a copy of the factory arguments used to create a resource.
         """
         return self._factory_arguments.copy()
 
@@ -126,8 +139,8 @@ class CuttlePool(object):
         .. warning:: This is not threadsafe. ``size`` can change when context
                      switches to another thread.
         """
-        with self.lock:
-            return len(self._reference_pool)
+        with self._lock:
+            return self._size
 
     @property
     def timeout(self):
@@ -137,6 +150,37 @@ class CuttlePool(object):
         """
         return self._timeout
 
+    def _get(self, timeout):
+        """
+        Get a resource from the pool. If timeout is ``None`` waits
+        indefinitely.
+
+        :param timeout: Time in seconds to wait for a resource.
+        :type timeout: int
+        :return: A resource.
+        :rtype: :class:`_ResourceTracker`
+
+        :raises PoolEmptyError: When timeout has elapsed and unable to
+            retrieve resource.
+        """
+        with self._lock:
+            if timeout is None:
+                while self.empty:
+                    self._not_empty.wait()
+            else:
+                time_end = time.time() + timeout
+                while self.empty:
+                    time_left = time_end - time.time()
+                    if time_left < 0:
+                        raise PoolEmptyError
+                    self._not_empty.wait(time_left)
+
+            rtracker = self._reference_queue[self._resource_start]
+            self._resource_start = (self._resource_start + 1) % self.maxsize
+            self._available -= 1
+
+        return rtracker
+
     def _get_tracker(self, resource):
         """
         Return the resource tracker that is tracking ``resource``.
@@ -145,32 +189,78 @@ class CuttlePool(object):
         :return: A resource tracker.
         :rtype: :class:`_ResourceTracker`
         """
-        with self.lock:
-            for rt in self._reference_pool:
+        with self._lock:
+            for rt in self._reference_queue:
                 if resource is rt.resource:
                     return rt
 
         raise UnknownResourceError('Resource not created by pool')
 
     def _harvest_lost_resources(self):
-        """
-        Returns lost resources to pool.
-        """
-        with self.lock:
-            for rtracker in self._reference_pool:
-                if rtracker.available() and rtracker not in self._pool.queue:
+        """Return lost resources to pool."""
+        with self._lock:
+            i_start = self._resource_end
+            i_end = self._resource_start + self.maxsize
+
+            for i in range(i_start, i_end):
+                i %= self.maxsize
+                rtracker = self._reference_queue[i]
+                if rtracker is not None and rtracker.available():
                     self.put_resource(rtracker.resource)
 
     def _make_resource(self):
         """
         Returns a resource instance.
         """
-        rtracker = _ResourceTracker(self._factory(**self._factory_arguments))
+        with self._lock:
+            i_start = self._resource_end
+            i_end = self._resource_start + self.maxsize
 
-        with self.lock:
-            self._reference_pool.append(rtracker)
+            for i in range(i_start, i_end):
+                i %= self.maxsize
+                if self._reference_queue[i] is None:
+                    rtracker = _ResourceTracker(
+                        self._factory(**self._factory_arguments))
+                    self._reference_queue[i] = rtracker
+                    self._size += 1
+                    return rtracker
 
-        return rtracker
+            raise PoolFullError
+
+    def _put(self, rtracker):
+        """
+        Put a resource back in the queue.
+
+        :param rtracker: A resource.
+        :type rtracker: :class:`_ResourceTracker`
+
+        :raises PoolFullError: If pool is full.
+        """
+        with self._lock:
+            if self._available < self.capacity:
+                i = self._reference_queue.index(rtracker)
+                j = self._resource_end
+                rq = self._reference_queue
+                rq[i], rq[j] = rq[j], rq[i]
+
+                self._resource_end = (self._resource_end + 1) % self.maxsize
+                self._available += 1
+
+                self._not_empty.notify()
+            else:
+                raise PoolFullError
+
+    def _remove(self, rtracker):
+        """
+        Remove a resource from the pool.
+
+        :param rtracker: A resource.
+        :type rtracker: :class:`_ResourceTracker`
+        """
+        with self._lock:
+            i = self._reference_queue.index(rtracker)
+            self._reference_queue[i] = None
+            self._size -= 1
 
     def get_connection(self, connection_wrapper=None):
         """For compatibility with older versions, will be removed in 1.0."""
@@ -181,21 +271,12 @@ class CuttlePool(object):
 
     def get_resource(self, resource_wrapper=None):
         """
-        Returns a ``Resource`` instance. This method will try to retrieve
-        a resource in the following order. First if the pool is empty, it
-        will return any unreferenced resources back to the pool. Second it
-        will attempt to get a resource from the pool without a timeout. Third
-        it will create a new resource if the maximum number of open
-        resources hasn't been exceeded. Fourth it will try to get a
-        resource from the pool with the specified timeout and will finally
-        raise an error if the timeout is exceeded without finding a resource.
-        Fifth if the resource is closed, a new resource is created to
-        replace it.
+        Returns a ``Resource`` instance.
 
         :param resource_wrapper: A Resource subclass.
         :return: A ``Resource`` instance.
 
-        :raises PoolDepletedError: If attempt to get resource fails or times
+        :raises PoolEmptyError: If attempt to get resource fails or times
             out.
         """
         rtracker = None
@@ -203,39 +284,47 @@ class CuttlePool(object):
         if resource_wrapper is None:
             resource_wrapper = self._resource_wrapper
 
-        if self._pool.empty():
+        if self.empty:
             self._harvest_lost_resources()
 
         try:
-            rtracker = self._pool.get_nowait()
+            rtracker = self._get(0)
+        except PoolEmptyError:
+            pass
 
-        except queue.Empty:
-            if self.size < self.maxsize:
+        if rtracker is None:
+            # Could not find resource, try to make one.
+            try:
                 rtracker = self._make_resource()
+            except PoolFullError:
+                pass
 
         if rtracker is None:
             # Could not find or make resource, so must wait for a resource
             # to be returned to the pool.
             try:
-                rtracker = self._pool.get(timeout=self._timeout)
-            except queue.Empty:
+                rtracker = self._get(timeout=self._timeout)
+            except PoolEmptyError:
                 pass
 
         if rtracker is None:
-            raise PoolDepletedError('Could not get resource, the pool is '
-                                    'depleted')
+            raise PoolEmptyError
 
         # Ensure resource is active.
         if not self.ping(rtracker.resource):
-            with self.lock:
-                self._reference_pool.remove(rtracker)
-            rtracker = self._make_resource()
+            # Lock here to prevent another thread creating a resource in the
+            # index that will have this resource removed. This ensures there
+            # will be space for _make_resource() to place a newly created
+            # resource.
+            with self._lock:
+                self._remove(rtracker)
+                rtracker = self._make_resource()
 
         # Ensure all resources leave pool with same attributes.
-        # ``normalize_connection()`` is used since it calls
-        # ``normalize_resource()``, so if a user implements either one, the
+        # normalize_connection() is used since it calls
+        # normalize_resource(), so if a user implements either one, the
         # resource will still be normalized. This will be changed in 1.0 to
-        # call ``normalize_resource()`` when ``normalize_connection()`` is
+        # call normalize_resource() when normalize_connection() is
         # removed.
         self.normalize_connection(rtracker.resource)
 
@@ -257,7 +346,7 @@ class CuttlePool(object):
 
         :param obj resource: A resource instance.
         """
-        warnings.warn('Failing to implement `normalize_resource()` can '
+        warnings.warn('Failing to implement normalize_resource() can '
                       'result in unwanted behavior.')
 
     def ping(self, resource):
@@ -270,7 +359,7 @@ class CuttlePool(object):
         :return: A bool indicating if the resource is open (``True``) or
             closed (``False``).
         """
-        warnings.warn('Failing to implement `ping()` can result in unwanted '
+        warnings.warn('Failing to implement ping() can result in unwanted '
                       'behavior.')
         return True
 
@@ -293,11 +382,9 @@ class CuttlePool(object):
         rtracker = self._get_tracker(resource)
 
         try:
-            self._pool.put_nowait(rtracker)
-
-        except queue.Full:
-            with self.lock:
-                self._reference_pool.remove(rtracker)
+            self._put(rtracker)
+        except PoolFullError:
+            self._remove(rtracker)
 
 
 class _ResourceTracker(object):
@@ -322,7 +409,7 @@ class _ResourceTracker(object):
         :param pool: A pool instance.
         :type pool: :class:`CuttlePool`
         :param resource_wrapper: A wrapper class for the resource.
-        :type resource_wrapper: ``:class: Resource``
+        :type resource_wrapper: :class:`Resource`
         :return: A wrapped resource.
         :rtype: :class:`Resource`
         """
@@ -376,8 +463,12 @@ class CuttlePoolError(Exception):
     """Base class for exceptions in this module."""
 
 
-class PoolDepletedError(CuttlePoolError):
+class PoolEmptyError(CuttlePoolError):
     """Exception raised when pool timeouts."""
+
+
+class PoolFullError(CuttlePoolError):
+    """Exception raised when there is no space to add a resource."""
 
 
 class UnknownResourceError(CuttlePoolError):
