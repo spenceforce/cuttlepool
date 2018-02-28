@@ -82,7 +82,9 @@ def test_resource_wrapper():
 def test_empty(pool):
     """Tests if pool is empty."""
     assert pool.empty
-    pool.get_resource().close()
+    r = pool.get_resource()
+    assert pool.empty
+    r.close()
     assert not pool.empty
 
 
