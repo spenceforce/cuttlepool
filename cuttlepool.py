@@ -90,12 +90,6 @@ class CuttlePool(object):
         return self._capacity
 
     @property
-    def empty(self):
-        """Return ``True`` if pool is empty. Not threadsafe."""
-        with self._lock:
-            return self._available == 0
-
-    @property
     def connection_arguments(self):
         """For compatibility with older versions, will be removed in 1.0."""
         warnings.warn(('connection_arguments is deprecated in favor of '
@@ -165,11 +159,11 @@ class CuttlePool(object):
         """
         with self._lock:
             if timeout is None:
-                while self.empty:
+                while self.empty():
                     self._not_empty.wait()
             else:
                 time_end = time.time() + timeout
-                while self.empty:
+                while self.empty():
                     time_left = time_end - time.time()
                     if time_left < 0:
                         raise PoolEmptyError
@@ -191,7 +185,7 @@ class CuttlePool(object):
         """
         with self._lock:
             for rt in self._reference_queue:
-                if resource is rt.resource:
+                if rt is not None and resource is rt.resource:
                     return rt
 
         raise UnknownResourceError('Resource not created by pool')
@@ -262,6 +256,11 @@ class CuttlePool(object):
             self._reference_queue[i] = None
             self._size -= 1
 
+    def empty(self):
+        """Return ``True`` if pool is empty."""
+        with self._lock:
+            return self._available == 0
+
     def get_connection(self, connection_wrapper=None):
         """For compatibility with older versions, will be removed in 1.0."""
         warnings.warn(('get_connection() is deprecated in favor of '
@@ -284,7 +283,7 @@ class CuttlePool(object):
         if resource_wrapper is None:
             resource_wrapper = self._resource_wrapper
 
-        if self.empty:
+        if self.empty():
             self._harvest_lost_resources()
 
         try:

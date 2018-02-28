@@ -81,11 +81,11 @@ def test_resource_wrapper():
 
 def test_empty(pool):
     """Tests if pool is empty."""
-    assert pool.empty
+    assert pool.empty()
     r = pool.get_resource()
-    assert pool.empty
+    assert pool.empty()
     r.close()
-    assert not pool.empty
+    assert not pool.empty()
 
 
 def test_resource_wrapper_get_resource():
@@ -344,6 +344,8 @@ def test_recycling(pool):
     """
     for _ in range(5):
         rs = [pool.get_resource() for _ in range(pool.maxsize)]
+        # Close resource in different order than retrieved.
+        rs.reverse()
         for r in rs:
             r.close()
 
