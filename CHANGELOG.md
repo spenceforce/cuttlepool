@@ -9,7 +9,7 @@ project adheres to [Semantic Versioning](http://semver.org).
 - Public attributes `capacity`, `overflow`, `timeout`, `maxsize`, `size`, and
   `empty` on `CuttlePool` instance.
 - Class `_ResourceTracker` for tracking a resource in and out of a pool.
-- ``PoolFullError``.
+- `PoolFullError`.
 
 ### Changed
 - `capacity` no longer has a default argument.
@@ -21,8 +21,9 @@ project adheres to [Semantic Versioning](http://semver.org).
 - `normalize_connection` has been renamed `normalize_resource`.
 - `put_connection` has been renamed `put_resource`.
 - Harvest lost resources based on weak references to resource wrappers instead
-  of using ``sys.getrefcount()`` on the resource instances themselves.
-- ``PoolDepletedError`` is now ``PoolEmptyError``.
+  of using `sys.getrefcount()` on the resource instances themselves.
+- `PoolDepletedError` is now `PoolEmptyError`.
+- Use custom queue implementation instead of Python's `queue.Queue` class.
 
 ### Removed
 - `ConnectionTypeError`, `PoolTypeError` removed.
@@ -31,9 +32,9 @@ project adheres to [Semantic Versioning](http://semver.org).
 
 ## [0.7.0] - 2018-02-09
 ### Added
-- ``CuttlePool`` accepts ``PoolConnection`` subclasses on instantiation as the
+- `CuttlePool` accepts `PoolConnection` subclasses on instantiation as the
   default connection wrapper.
-- ``get_connection()`` accepts ``PoolConnection`` subclasses to supersede the
+- `get_connection()` accepts `PoolConnection` subclasses to supersede the
   default connection wrapper.
 
 ### Changed
