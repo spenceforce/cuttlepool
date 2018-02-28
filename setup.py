@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import io
 import os
 import re
 from setuptools import setup
@@ -8,11 +9,11 @@ VER_RE = "__version__ = [\"'](?P<Version>(?:(?![\"']).)*)"
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-with open(os.path.join(os.getcwd(), 'cuttlepool.py'), 'r', encoding='utf-8') as f:
+with io.open(os.path.join(os.getcwd(), 'cuttlepool.py'), 'r', encoding='utf-8') as f:
     init_file = f.read()
     version = re.search(VER_RE, init_file).group('Version')
 
-with open(os.path.join(here, 'README.rst'), 'r', encoding='utf-8') as f:
+with io.open(os.path.join(here, 'README.rst'), 'r', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='cuttlepool',
