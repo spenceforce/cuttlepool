@@ -5,7 +5,7 @@ Cuttle Pool.
 :license: BSD 3-clause, see LICENSE for details.
 """
 
-__version__ = '0.8.0-dev'
+__version__ = '0.8.0'
 
 
 try:
