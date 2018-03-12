@@ -2,9 +2,9 @@
 CuttlePool
 ##########
 
-CuttlePool is a general purpose resource pooling implementation for use with
-long lived resources and/or resources that are expensive to instantiate. It's
-key features are:
+CuttlePool is a general purpose, thread-safe resource pooling implementation
+for use with long lived resources and/or resources that are expensive to
+instantiate. It's key features are:
 
 Pool overflow
    Creates additional resources if the pool capacity has been reached and
@@ -82,17 +82,17 @@ just like a ``sqlite3.Connection`` instance. ::
 
   >>> con = pool.get_resource()
   >>> cur = con.cursor()
-  >>> cur.execute('INSERT INTO garage (invention_name, state) '
-  ...             'VALUES (%s, %s)', ('Space Cruiser', 'damaged'))
+  >>> cur.execute(('INSERT INTO garage (invention_name, state) '
+  ...              'VALUES (%s, %s)'), ('Space Cruiser', 'damaged'))
   >>> con.commit()
   >>> cur.close()
   >>> con.close()
 
 Calling ``close()`` on the resource returns it to the pool instead of closing
 it. It is not necessary to call ``close()`` though. The pool tracks resources
-using :class:`weakref.ref`, so any unreferenced resources will be collected and
-returned to the pool. It is still a good idea to call ``close()`` though, since
-explicit is better than implicit.
+so any unreferenced resources will be collected and returned to the pool. It is
+still a good idea to call ``close()`` though, since explicit is better than
+implicit.
 
 .. note::
    Once ``close()`` is called on the resource object, it renders the
@@ -100,6 +100,16 @@ explicit is better than implicit.
    around the actual resource object and calling ``close()`` on it returns
    the resource to the pool and removes it from the wrapper effectively
    leaving it an empty shell to be garbage collected.
+
+To automatically "close" resources, ``get_resource()`` can be used in a
+``with`` statement. ::
+
+  >>> with pool.get_resource() as con:
+  ...     cur = con.cursor()
+  ...     cur.execute(('INSERT INTO garage (invention_name, state) '
+  ...                  'VALUES (%s, %s)'), ('Space Cruiser', 'damaged'))
+  ...     con.commit()
+  ...     cur.close()
 
 FAQ
 ===
