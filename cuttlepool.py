@@ -7,7 +7,6 @@ Cuttle Pool.
 
 __version__ = '0.9.0-dev'
 
-
 try:
     import threading
 except ImportError:
@@ -15,7 +14,6 @@ except ImportError:
 import time
 import warnings
 import weakref
-
 
 _OVERFLOW = 0
 _TIMEOUT = None
@@ -229,10 +227,22 @@ class CuttlePool(object):
         :type rtracker: :class:`_ResourceTracker`
 
         :raises PoolFullError: If pool is full.
+        :raises UnknownResourceError: If resource can't be found.
         """
         with self._lock:
             if self._available < self.capacity:
-                i = self._reference_queue.index(rtracker)
+                i_start = self._resource_end
+                i_end = self._resource_start + self.maxsize
+
+                for i in range(i_start, i_end):
+                    i %= self.maxsize
+                    if self._reference_queue[i] is rtracker:
+                        # i retains its value and will be used to swap with
+                        # first "empty" space in queue.
+                        break
+                else:
+                    raise UnknownResourceError
+
                 j = self._resource_end
                 rq = self._reference_queue
                 rq[i], rq[j] = rq[j], rq[i]
@@ -482,6 +492,5 @@ class PoolConnection(Resource):
 
     def __init__(self, *args, **kwargs):
         warnings.warn(('PoolConnection is deprecated in favor of Resource and '
-                       'will be removed in 1.0'),
-                      DeprecationWarning)
+                       'will be removed in 1.0'), DeprecationWarning)
         super(PoolConnection, self).__init__(*args, **kwargs)
