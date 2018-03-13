@@ -111,6 +111,11 @@ To automatically "close" resources, ``get_resource()`` can be used in a
   ...     con.commit()
   ...     cur.close()
 
+API
+===
+
+The API can be found at `read the docs <https://cuttlepool.rtfd.io>`_.
+
 FAQ
 ===
 

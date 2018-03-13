@@ -8,6 +8,9 @@ tests/*_credentials.py
 .eggs/
 .tox/
 
+_build/
+_static/
+_templates/
 build/
 dist/
 venv/

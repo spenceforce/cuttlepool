@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Cuttle Pool.
+CuttlePool.
 
 :license: BSD 3-clause, see LICENSE for details.
 """
