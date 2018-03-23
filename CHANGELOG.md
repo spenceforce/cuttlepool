@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com) and this
 project adheres to [Semantic Versioning](http://semver.org).
 
 ## [Unreleased]
+### Changed
+- Moved logic for iterating over unavailable region to a newly defined
+  generator, `_unavailable_range`.
 
 ## [0.8.0] - 2018-02-28
 ### Added

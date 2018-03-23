@@ -64,9 +64,9 @@ class CuttlePool(object):
         self._factory_arguments = kwargs
 
         # The reference queue is divided in two sections. One section is a
-        # queue of resources that are ready for use. The other section is an
-        # unordered list of resources that are currently in use and NoneType
-        # objects.
+        # queue of resources that are ready for use (the available region).
+        # The other section is an unordered list of resources that are
+        # currently in use and NoneType objects (the unavailable region).
         self._reference_queue = [None] * self.maxsize
         self._resource_start = self._resource_end = 0
         # _size is the number of existing resources. _available is the
@@ -191,11 +191,7 @@ class CuttlePool(object):
     def _harvest_lost_resources(self):
         """Return lost resources to pool."""
         with self._lock:
-            i_start = self._resource_end
-            i_end = self._resource_start + self.maxsize
-
-            for i in range(i_start, i_end):
-                i %= self.maxsize
+            for i in self._unavailable_range():
                 rtracker = self._reference_queue[i]
                 if rtracker is not None and rtracker.available():
                     self.put_resource(rtracker.resource)
@@ -205,16 +201,14 @@ class CuttlePool(object):
         Returns a resource instance.
         """
         with self._lock:
-            i_start = self._resource_end
-            i_end = self._resource_start + self.maxsize
-
-            for i in range(i_start, i_end):
-                i %= self.maxsize
+            for i in self._unavailable_range():
                 if self._reference_queue[i] is None:
                     rtracker = _ResourceTracker(
                         self._factory(**self._factory_arguments))
+
                     self._reference_queue[i] = rtracker
                     self._size += 1
+
                     return rtracker
 
             raise PoolFullError
@@ -231,11 +225,7 @@ class CuttlePool(object):
         """
         with self._lock:
             if self._available < self.capacity:
-                i_start = self._resource_end
-                i_end = self._resource_start + self.maxsize
-
-                for i in range(i_start, i_end):
-                    i %= self.maxsize
+                for i in self._unavailable_range():
                     if self._reference_queue[i] is rtracker:
                         # i retains its value and will be used to swap with
                         # first "empty" space in queue.
@@ -265,6 +255,20 @@ class CuttlePool(object):
             i = self._reference_queue.index(rtracker)
             self._reference_queue[i] = None
             self._size -= 1
+
+    def _unavailable_range(self):
+        """
+        Return a generator for the indices of the unavailable region of
+        ``_reference_queue``.
+        """
+        with self._lock:
+            i = self._resource_end
+            j = self._resource_start
+            if j < i or self.empty():
+                j += self.maxsize
+
+            for k in range(i, j):
+                yield k % self.maxsize
 
     def empty(self):
         """Return ``True`` if pool is empty."""

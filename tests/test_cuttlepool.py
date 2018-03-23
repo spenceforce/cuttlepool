@@ -25,21 +25,31 @@ class SubResource(Resource):
     pass
 
 
-@pytest.fixture()
-def pool():
+@pytest.fixture
+def capacity():
+    return 5
+
+
+@pytest.fixture
+def overflow():
+    return 1
+
+
+@pytest.fixture
+def pool(capacity, overflow):
     """A CuttlePool instance."""
-    p = MockPool(mockresource.factory, capacity=5, overflow=1)
+    p = MockPool(mockresource.factory, capacity=capacity, overflow=overflow)
     return p
 
 
-@pytest.fixture()
+@pytest.fixture
 def rtracker(pool):
     """A _ResourceTracker instance."""
     rt = pool._make_resource()
     return rt
 
 
-@pytest.fixture()
+@pytest.fixture
 def resource(pool):
     """A Resource instance."""
     r = pool.get_resource()
@@ -48,19 +58,19 @@ def resource(pool):
 
 
 def test_nonpositive_capacity():
-    """Tests error is raised when nonpositive capacity is specified."""
+    """Test error is raised when nonpositive capacity is specified."""
     with pytest.raises(ValueError):
         MockPool(mockresource.factory, capacity=0)
 
 
 def test_negative_overflow():
-    """Tests error is raised when negative overflow is specified."""
+    """Test error is raised when negative overflow is specified."""
     with pytest.raises(ValueError):
         MockPool(mockresource.factory, capacity=1, overflow=-1)
 
 
 def test_improper_timeout():
-    """Tests error is raised for improper timeout argument."""
+    """Test error is raised for improper timeout argument."""
     with pytest.raises(ValueError):
         MockPool(mockresource.factory, capacity=1, timeout=-1)
 
@@ -70,17 +80,16 @@ def test_improper_timeout():
 
 def test_resource_wrapper():
     """
-    Tests the proper Resource subclass is returned from ``get_resource()``.
+    Test the proper Resource subclass is returned from ``get_resource()``.
     """
-    pool = MockPool(mockresource.factory,
-                    capacity=1,
-                    resource_wrapper=SubResource)
+    pool = MockPool(
+        mockresource.factory, capacity=1, resource_wrapper=SubResource)
     r = pool.get_resource()
     assert isinstance(r, SubResource)
 
 
 def test_empty(pool):
-    """Tests if pool is empty."""
+    """Test if pool is empty."""
     assert pool.empty()
     r = pool.get_resource()
     assert pool.empty()
@@ -88,24 +97,23 @@ def test_empty(pool):
     assert not pool.empty()
 
 
-def test_resource_wrapper_get_resource():
+def test_resource_wrapper_get_resource(pool):
     """
-    Tests the proper Resource subclass is returned from ``get_resource()``.
+    Test the proper Resource subclass is returned from ``get_resource()``.
     """
-    pool = MockPool(mockresource.factory, capacity=1)
     r = pool.get_resource(resource_wrapper=SubResource)
     assert isinstance(r, SubResource)
 
 
 def test_get_empty(pool):
-    """Tests the pool raises a ``PoolEmptyError``."""
+    """Test the pool raises a ``PoolEmptyError``."""
     with pytest.raises(PoolEmptyError):
         pool._get(0)
 
 
 def test_get(pool, resource):
-    """Tests ``_get()`` gets a resource."""
-    resource.close()            # Returns resource to pool.
+    """Test ``_get()`` gets a resource."""
+    resource.close()  # Returns resource to pool.
     rt = pool._get(0)
     assert isinstance(rt, _ResourceTracker)
 
@@ -118,7 +126,7 @@ def test_get_wait():
     pool = MockPool(mockresource.factory, capacity=1)
     resource = pool.get_resource()
 
-    t = threading.Thread(target=worker, args=(resource,))
+    t = threading.Thread(target=worker, args=(resource, ))
     t.start()
 
     rt = pool._get(None)
@@ -126,19 +134,21 @@ def test_get_wait():
 
 
 def test_get_tracker(pool, rtracker):
-    """Tests the resource tracker for a resource is returned."""
+    """Test the resource tracker for a resource is returned."""
     rt = pool._get_tracker(rtracker.resource)
     assert rt is rtracker
 
 
 def test_harvest_lost_resources(pool):
-    """Tests unreferenced resources are returned to the pool."""
+    """Test unreferenced resources are returned to the pool."""
+
     def get_resource_id():
         """
         Ensures ``Resource`` falls out of scope before calling
         ``_harvest_lost_resources()``.
         """
         return id(pool.get_resource()._resource)
+
     r_id = get_resource_id()
     # Run garbage collection to ensure ``Resource`` created in
     # ``get_resource_id()`` is destroyed.
@@ -149,7 +159,7 @@ def test_harvest_lost_resources(pool):
 
 def test_make_resource(pool):
     """
-    Tests the resource object returned from _make_resource is the proper class
+    Test the resource object returned from _make_resource is the proper class
     instance.
     """
     r = pool._make_resource()
@@ -158,7 +168,7 @@ def test_make_resource(pool):
 
 
 def test_put_full():
-    """Tests ``PoolFullError`` is raised."""
+    """Test ``PoolFullError`` is raised."""
     pool = MockPool(mockresource.factory, capacity=1, overflow=1)
     r1 = pool.get_resource()
     r2 = pool.get_resource()
@@ -170,22 +180,52 @@ def test_put_full():
 
 
 def test_put(pool, rtracker):
-    """Tests ``_put()`` returns resource to pool."""
+    """Test ``_put()`` returns resource to pool."""
     assert pool._available == 0
     pool._put(rtracker)
     assert pool._available == 1
 
 
 def test_remove(pool, rtracker):
-    """Tests ``_remove()`` removes resource from pool."""
+    """Test ``_remove()`` removes resource from pool."""
     pool._remove(rtracker)
     assert pool.size == pool._available == 0
     assert list(filter(None, pool._reference_queue)) == []
 
 
+def test_unavailable_range(pool):
+    """Test proper generator returned for unused pool."""
+    assert list(pool._unavailable_range()) == [x for x in range(pool.maxsize)]
+
+
+def test_unavailable_range_depleted_pool(pool):
+    """Test generator when pool is depleted."""
+    resources = [pool.get_resource() for _ in range(pool.maxsize)]
+    assert list(pool._unavailable_range()) == [x for x in range(pool.maxsize)]
+
+
+def test_unavailable_range_wraps(pool, capacity):
+    """
+    Test generator uses correct indices when ``_resource_start`` is less than
+    ``_resource_end``.
+    """
+    # Create capacity resources, then return them to the pool. This makes
+    # _resource_end == capacity.
+    resources = [pool.get_resource() for _ in range(capacity)]
+    [r.close() for r in resources]
+    # Get a resource, which makes _resource_start == 1.
+    r = pool.get_resource()
+
+    # The unavailable range starts at _resource_end (5) and wraps around to
+    # _resource_start (1, exclusive).
+    unavailable = list(range(capacity, pool.maxsize))
+    unavailable.extend(range(pool._resource_start))
+    assert list(pool._unavailable_range()) == unavailable
+
+
 def test_get_resource(pool):
     """
-    Tests the resource object returned from get_resource is the
+    Test the resource object returned from get_resource is the
     proper class instance.
     """
     r = pool.get_resource()
@@ -194,7 +234,7 @@ def test_get_resource(pool):
 
 def test_get_resource_overflow(pool):
     """
-    Tests the pool creates proper number of overflow resources properly.
+    Test the pool creates proper number of overflow resources properly.
     """
     rs = []
     for _ in range(pool.maxsize):
@@ -209,14 +249,15 @@ def test_get_resource_overflow(pool):
 
 
 def test_get_resource_depleted(pool):
-    """Tests the pool will return a resource once one is available."""
+    """Test the pool will return a resource once one is available."""
+
     def worker(pool):
         r = pool.get_resource()
         time.sleep(5)
         r.close()
 
     for _ in range(pool.maxsize):
-        t = threading.Thread(target=worker, args=(pool,))
+        t = threading.Thread(target=worker, args=(pool, ))
         t.start()
 
     time.sleep(2)
@@ -224,7 +265,7 @@ def test_get_resource_depleted(pool):
 
 
 def test_get_resource_depleted_error():
-    """Tests the pool will raise an error when depleted."""
+    """Test the pool will raise an error when depleted."""
     pool = MockPool(mockresource.factory, capacity=1, timeout=1)
     with pytest.raises(PoolEmptyError):
         rt = []
@@ -234,9 +275,10 @@ def test_get_resource_depleted_error():
 
 def test_normalize_resource():
     """
-    Tests that the normalize_resource method is properly called on
+    Test that the normalize_resource method is properly called on
     resources returned from get_resource.
     """
+
     class Normalize(MockPool):
         def normalize_resource(self, resource):
             setattr(resource, 'one', 1)
@@ -255,13 +297,13 @@ def test_normalize_resource():
 
 def test_ping(pool):
     """
-    Tests that the ping method is properly called on resources returned
+    Test that the ping method is properly called on resources returned
     from get_resource.
     """
     r = pool.get_resource()
     r_id = id(r._resource)
-    r._resource.close()     # Close the underlying resource object.
-    r.close()                 # Return the resource to the pool.
+    r._resource.close()  # Close the underlying resource object.
+    r.close()  # Return the resource to the pool.
 
     # Calling get_resource() should create a new resource object since
     # the previous one (which is the only one currently in the pool) is not
@@ -273,7 +315,7 @@ def test_ping(pool):
 
 def test_put_resource(pool):
     """
-    Tests that the resource is properly returned to the pool.
+    Test that the resource is properly returned to the pool.
     """
     r = pool.get_resource()
     r_id = id(r._resource)
@@ -283,7 +325,7 @@ def test_put_resource(pool):
 
 
 def test_with_resource(pool):
-    """Tests Resource context manager."""
+    """Test Resource context manager."""
     with pool.get_resource() as r:
         assert isinstance(r, Resource)
 
@@ -299,7 +341,7 @@ def test_with_resource(pool):
 
 def test_resource_available(pool, rtracker):
     """
-    Tests a resource is properly tracked by a ``_ResourceTracker`` instance.
+    Test a resource is properly tracked by a ``_ResourceTracker`` instance.
     """
     assert rtracker.available()
     r = rtracker.wrap_resource(pool, Resource)
@@ -311,7 +353,7 @@ def test_resource_available(pool, rtracker):
 
 def test_wrap_resource(pool, rtracker):
     """
-    Tests a resource is properly wrapped and referenced by
+    Test a resource is properly wrapped and referenced by
     ``_ResourceTracker``.
     """
     r = rtracker.wrap_resource(pool, Resource)
@@ -320,7 +362,7 @@ def test_wrap_resource(pool, rtracker):
 
 
 def test_resource_getattr_setattr(resource):
-    """Tests that attributes are set on the underlying resource object."""
+    """Test that attributes are set on the underlying resource object."""
     resource.one = 1
     assert resource.one == 1
     assert 'one' not in resource.__dict__
@@ -330,7 +372,7 @@ def test_resource_getattr_setattr(resource):
 
 
 def test_close(pool):
-    """Tests the close method of a Resource object."""
+    """Test the close method of a Resource object."""
     r = pool.get_resource()
 
     r.close()
@@ -340,13 +382,31 @@ def test_close(pool):
 
 def test_recycling(pool):
     """
-    Tests no errors are raised for multiple rounds of getting and putting.
+    Test no errors are raised for multiple rounds of getting and putting. Kind
+    of a "catch all" to make sure no errors crop up when resources are
+    recycled.
     """
+    # Recycle pool repeatedly in single thread.
     for _ in range(5):
         rs = [pool.get_resource() for _ in range(pool.maxsize)]
         # Close resource in different order than retrieved.
         rs.reverse()
         for r in rs:
             r.close()
+
+    # Recycle pool repeatedly in multiple threads.
+    def worker(pool):
+        for _ in range(5):
+            r = pool.get_resource()
+            r.close()
+
+    threads = []
+    for _ in range(5):
+        t = threading.Thread(target=worker, args=(pool, ))
+        t.start()
+        threads.append(t)
+
+    for t in threads:
+        t.join()
 
     assert pool._available == pool.size == pool.capacity
