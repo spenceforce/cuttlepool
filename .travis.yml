@@ -7,6 +7,6 @@ python:
   - "3.5"
   - "3.6"
 
-script: python -m pytest
+script: pytest
 
-install: pip install .
+install: pip install .[dev]
