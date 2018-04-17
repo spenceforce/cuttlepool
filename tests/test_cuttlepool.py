@@ -11,7 +11,7 @@ import pytest
 # Travis CI uses pytest v2.9.2 for Python 3.3 tests. Any fixtures that yield
 # a resource using pytest <= v2.9.2 should use yield_fixture explicitly,
 # otherwise use fixture as per the docs.
-if int(pytest.__version__.split('.'_[0])) >= 3:
+if int(pytest.__version__.split('.')[0]) >= 3:
     pytest.yield_fixture = pytest.fixture
 
 from cuttlepool import (_ResourceTracker, CuttlePool, Resource, PoolEmptyError,
