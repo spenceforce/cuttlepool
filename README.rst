@@ -2,6 +2,10 @@
 CuttlePool
 ##########
 
+.. image:: https://travis-ci.org/smitchell556/cuttlepool.svg?branch=master
+   :target: https://travis-ci.org/smitchell556/cuttlepool
+
+
 CuttlePool is a general purpose, thread-safe resource pooling implementation
 for use with long lived resources and/or resources that are expensive to
 instantiate. It's key features are:
