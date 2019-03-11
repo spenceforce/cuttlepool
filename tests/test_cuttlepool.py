@@ -14,8 +14,9 @@ import pytest
 if int(pytest.__version__.split('.')[0]) >= 3:
     pytest.yield_fixture = pytest.fixture
 
-from cuttlepool import (_ResourceTracker, CuttlePool, Resource, PoolEmptyError,
-                        PoolFullError)
+from cuttlepool import CuttlePool
+from cuttlepool.cuttlepool import (_ResourceTracker, Resource, PoolEmptyError,
+                                   PoolFullError)
 import mockresource
 
 
@@ -384,35 +385,3 @@ def test_close(pool):
     r.close()
     assert r._resource is None
     assert r._pool is None
-
-
-def test_recycling(pool):
-    """
-    Test no errors are raised for multiple rounds of getting and putting. Kind
-    of a "catch all" to make sure no errors crop up when resources are
-    recycled.
-    """
-    # Recycle pool repeatedly in single thread.
-    for _ in range(5):
-        rs = [pool.get_resource() for _ in range(pool.maxsize)]
-        # Close resource in different order than retrieved.
-        rs.reverse()
-        for r in rs:
-            r.close()
-
-    # Recycle pool repeatedly in multiple threads.
-    def worker(pool):
-        for _ in range(5):
-            r = pool.get_resource()
-            r.close()
-
-    threads = []
-    for _ in range(5):
-        t = threading.Thread(target=worker, args=(pool, ))
-        t.start()
-        threads.append(t)
-
-    for t in threads:
-        t.join()
-
-    assert pool._available == pool.size == pool.capacity
