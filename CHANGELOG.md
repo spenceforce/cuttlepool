@@ -8,6 +8,9 @@ project adheres to [Semantic Versioning](http://semver.org).
 ### Changed
 - Moved logic for iterating over unavailable region to a newly defined
   generator, `_unavailable_range`.
+- Dropped support for Python 3.3. This does not mean it won't work for Python
+  3.3, but it will no longer be tested.
+- Add support for Python 3.7 and 3.8.
 
 ## [0.8.0] - 2018-02-28
 ### Added
