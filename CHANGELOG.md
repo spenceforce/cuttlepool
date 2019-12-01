@@ -11,6 +11,7 @@ project adheres to [Semantic Versioning](http://semver.org).
 - Dropped support for Python 3.3. This does not mean it won't work for Python
   3.3, but it will no longer be tested.
 - Add support for Python 3.7 and 3.8.
+- Fix race condition in `get_resource` see [issue #36](https://github.com/smitchell556/cuttlepool/issues/36).
 
 ## [0.8.0] - 2018-02-28
 ### Added
