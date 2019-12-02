@@ -5,7 +5,7 @@ CuttlePool.
 :license: BSD 3-clause, see LICENSE for details.
 """
 
-__version__ = '0.9.0'
+__version__ = '0.10.0-dev'
 
 try:
     import threading
