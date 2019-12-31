@@ -5,7 +5,7 @@ CuttlePool.
 :license: BSD 3-clause, see LICENSE for details.
 """
 
-__version__ = '0.10.0-dev'
+__version__ = '0.9.1-dev'
 
 try:
     import threading
@@ -14,7 +14,6 @@ except ImportError:
 import time
 import warnings
 import weakref
-import logging
 
 
 _OVERFLOW = 0
@@ -46,7 +45,6 @@ class CuttlePool(object):
                  timeout=_TIMEOUT,
                  resource_wrapper=None,
                  **kwargs):
-        log.debug('>')    
         if capacity <= 0:
             raise ValueError('CuttlePool requires a minimum capacity of 1')
         if overflow < 0:
@@ -82,7 +80,6 @@ class CuttlePool(object):
         # Notify thread waiting for resource that the queue is not empty when
         # a resource is returned to the pool.
         self._not_empty = threading.Condition(self._lock)
-        log.debug('<')    
 
     @property
     def capacity(self):
@@ -146,51 +143,42 @@ class CuttlePool(object):
         """
         return self._timeout
 
-    def _get(self, timeout, resource_wrapper_class):
+    def _get(self, timeout, resource_wrapper=None):
         """
         Get a resource from the pool. If timeout is ``None`` waits
         indefinitely.
 
         :param timeout: Time in seconds to wait for a resource.
         :type timeout: int
-        :return: A resource.
-        :rtype: :class:`_ResourceTracker`
+        :param resource_wrapper: A Resource subclass.
+        :return: A tuple containing a ``_ResourceTracker`` and ``Resource``.
 
         :raises PoolEmptyError: When timeout has elapsed and unable to
             retrieve resource.
         """
+        if resource_wrapper is None:
+            resource_wrapper = self._resource_wrapper
 
-        log.debug('> id(self)=%d _available=%d' % (id(self),self._available) )
         with self._lock:
-            log.debug('  after lock: id(self)=%d _available=%d' % (id(self),self._available) )
             if timeout is None:
                 while self.empty():
-                    log.debug('  Pool empty - waiting')
                     self._not_empty.wait()
             else:
                 time_end = time.time() + timeout
                 while self.empty():
                     time_left = time_end - time.time()
                     if time_left < 0:
-                        log.debug('< PoolEmptyError')
                         raise PoolEmptyError
-                    log.debug('  Pool empty - waiting')
+
                     self._not_empty.wait(time_left)
 
             rtracker = self._reference_queue[self._resource_start]
-            log.debug('_resource_start=%d id=%d class=%s' % (self._resource_start,id(rtracker),rtracker.__class__.__name__))
             self._resource_start = (self._resource_start + 1) % self.maxsize
             self._available -= 1
 
-            # tell the resource-tracker to wrap the resource. We return the resource-tracker an the wrapped resource
-            wrapedResource = rtracker.wrap_resource(self, resource_wrapper_class)
+            wrapped_resource = rtracker.wrap_resource(self, resource_wrapper)
 
-            if rtracker._weakref is not None:
-                log.debug('<  _available=%d id(rtracker)=%d, rtracker._weakref()=%s' % (self._available,id(rtracker),rtracker._weakref()))
-            else:
-                log.debug('<  _available=%d id(rtracker)=%d, rtracker._weakref is None!' % (self._available,id(rtracker)) )
-
-            return rtracker, wrapedResource
+            return rtracker, wrapped_resource
 
     def _get_tracker(self, resource):
         """
@@ -209,20 +197,22 @@ class CuttlePool(object):
 
     def _harvest_lost_resources(self):
         """Return lost resources to pool."""
-        log.info('>')
         with self._lock:
             for i in self._unavailable_range():
                 rtracker = self._reference_queue[i]
                 if rtracker is not None and rtracker.available():
                     self.put_resource(rtracker.resource)
 
-        log.info('<')
-
-    def _make_resource(self, resource_wrapper_class):
+    def _make_resource(self, resource_wrapper=None):
         """
         Returns a resource instance.
+
+        :param resource_wrapper: A Resource subclass.
+        :return: A tuple containing a ``_ResourceTracker`` and ``Resource``.
         """
-        log.debug('>')
+        if resource_wrapper is None:
+            resource_wrapper = self._resource_wrapper
+
         with self._lock:
             for i in self._unavailable_range():
                 if self._reference_queue[i] is None:
@@ -232,9 +222,9 @@ class CuttlePool(object):
                     self._reference_queue[i] = rtracker
                     self._size += 1
                     # tell the resource-tracker to wrap the resource. We return the resource-tracker an the wrapped resource
-                    wrapedResource = rtracker.wrap_resource(self, resource_wrapper_class)
-                    log.debug('< new resource id=%d index=%d' % (id(rtracker),i) )
-                    return rtracker, wrapedResource
+                    wrapped_resource = rtracker.wrap_resource(
+                        self, resource_wrapper)
+                    return rtracker, wrapped_resource
 
             raise PoolFullError
 
@@ -248,11 +238,6 @@ class CuttlePool(object):
         :raises PoolFullError: If pool is full.
         :raises UnknownResourceError: If resource can't be found.
         """
-        log.debug('>')
-        if rtracker._weakref is not None:
-            log.debug('  id(rtracker)=%d, rtracker._weakref()=%s' % (id(rtracker),rtracker._weakref()))
-        else:
-            log.debug('  id(rtracker)=%d, rtracker._weakref is None!' % id(rtracker) )
         with self._lock:
             if self._available < self.capacity:
                 for i in self._unavailable_range():
@@ -264,7 +249,6 @@ class CuttlePool(object):
                     raise UnknownResourceError
 
                 j = self._resource_end
-                log.debug('  _resource_end=%d, index=%d id=%d, ' % (self._resource_end,i,id(rtracker)) )
                 rq = self._reference_queue
                 rq[i], rq[j] = rq[j], rq[i]
 
@@ -274,7 +258,6 @@ class CuttlePool(object):
                 self._not_empty.notify()
             else:
                 raise PoolFullError
-            log.debug('< _available=%d _resource_start=%d _resource_end=%d' % (self._available, self._resource_start, self._resource_end))
 
     def _remove(self, rtracker):
         """
@@ -324,9 +307,8 @@ class CuttlePool(object):
         :raises PoolEmptyError: If attempt to get resource fails or times
             out.
         """
-        log.debug('>')    
         rtracker = None
-        wrapedResource = None # return value of this function
+        wrapped_resource = None
 
         if resource_wrapper is None:
             resource_wrapper = self._resource_wrapper
@@ -335,15 +317,16 @@ class CuttlePool(object):
             self._harvest_lost_resources()
 
         try:
-            # try the get a resource from the pool. Do not wait; pool is empty at very first call
-            rtracker, wrapedResource = self._get(0, resource_wrapper)
+            # Try to get a resource from the pool. Do not wait.
+            rtracker, wrapped_resource = self._get(0, resource_wrapper)
         except PoolEmptyError:
             pass
 
         if rtracker is None:
             # Could not find resource, try to make one.
             try:
-                rtracker, wrapedResource = self._make_resource(resource_wrapper)
+                rtracker, wrapped_resource = self._make_resource(
+                    resource_wrapper)
             except PoolFullError:
                 pass
 
@@ -351,14 +334,13 @@ class CuttlePool(object):
             # Could not find or make resource, so must wait for a resource
             # to be returned to the pool.
             try:
-                rtracker, wrapedResource = self._get(self._timeout, resource_wrapper)
+                rtracker, wrapped_resource = self._get(
+                    self._timeout, resource_wrapper)
             except PoolEmptyError:
                 pass
 
         if rtracker is None:
             raise PoolEmptyError
-
-
 
         # Ensure resource is active.
         if not self.ping(rtracker.resource):
@@ -368,8 +350,8 @@ class CuttlePool(object):
             # resource.
             with self._lock:
                 self._remove(rtracker)
-		# make a new resource an receive it from the pool
-                rtracker, wrapedResource = self._make_resource(resource_wrapper)
+                rtracker, wrapped_resource = self._make_resource(
+                    resource_wrapper)
 
         # Ensure all resources leave pool with same attributes.
         # normalize_connection() is used since it calls
@@ -379,14 +361,7 @@ class CuttlePool(object):
         # removed.
         self.normalize_connection(rtracker.resource)
 
-        ##kl##
-        if rtracker._weakref is not None:
-            log.debug('  id(rtracker)=%d, rtracker._weakref()=%s' % (id(rtracker),rtracker._weakref()))
-        else:
-            log.debug('  id(rtracker)=%d, rtracker._weakref is None!' % id(rtracker) )
-        ##kl##
-        log.debug('<')    
-        return wrapedResource
+        return wrapped_resource
 
     def normalize_connection(self, connection):
         """For compatibility with older versions, will be removed in 1.0."""
@@ -543,6 +518,3 @@ class PoolConnection(Resource):
         warnings.warn(('PoolConnection is deprecated in favor of Resource and '
                        'will be removed in 1.0'), DeprecationWarning)
         super(PoolConnection, self).__init__(*args, **kwargs)
-# ----------------------------------------------------------------------------
-global log 
-log = logging.getLogger(__name__)

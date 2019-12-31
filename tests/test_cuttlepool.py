@@ -51,7 +51,7 @@ def pool(capacity, overflow):
 @pytest.fixture
 def rtracker(pool):
     """A _ResourceTracker instance."""
-    rt = pool._make_resource()
+    rt, _ = pool._make_resource()
     return rt
 
 
@@ -120,7 +120,7 @@ def test_get_empty(pool):
 def test_get(pool, resource):
     """Test ``_get()`` gets a resource."""
     resource.close()  # Returns resource to pool.
-    rt = pool._get(0)
+    rt, _ = pool._get(0)
     assert isinstance(rt, _ResourceTracker)
 
 
@@ -135,7 +135,7 @@ def test_get_wait():
     t = threading.Thread(target=worker, args=(resource, ))
     t.start()
 
-    rt = pool._get(None)
+    rt, _ = pool._get(None)
     assert isinstance(rt, _ResourceTracker)
 
 
@@ -168,7 +168,7 @@ def test_make_resource(pool):
     Test the resource object returned from _make_resource is the proper class
     instance.
     """
-    r = pool._make_resource()
+    r, _ = pool._make_resource()
     assert pool.size == 1
     assert isinstance(r, _ResourceTracker)
 
