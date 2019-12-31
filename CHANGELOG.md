@@ -5,9 +5,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com) and this
 project adheres to [Semantic Versioning](http://semver.org).
 
 ## [Unreleased]
-### Fixed
-- Release lock when calling `ping` on a resource. Related to [issue #36](https://github.com/smitchell556/cuttlepool/issues/36).
-  Thanks to @nuuk42 for providing a solution.
 
 ## [0.9.1] - 2019-12-31
 ### Fixed
