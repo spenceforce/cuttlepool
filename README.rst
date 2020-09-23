@@ -30,47 +30,56 @@ How-to Guide
 
 Using CuttlePool requires subclassing a ``CuttlePool`` object with a user
 defined method ``normalize_resource()`` and ``ping()``. The example below uses
-``sqlite3`` connections as a resource, but CuttlePool is not limited to
+``mysqlclient`` connections as a resource, but CuttlePool is not limited to
 connection drivers. ::
 
-  >>> import sqlite3
+  >>> import MySQLdb
   >>> from cuttlepool import CuttlePool
-  >>> class SQLitePool(CuttlePool):
-  ...     def normalize_resource(self, resource):
-  ...         resource.row_factory = None
+  >>> class MySQLPool(CuttlePool):
   ...     def ping(self, resource):
   ...         try:
-  ...             rv = resource.execute('SELECT 1').fetchall()
-  ...             return (1,) in rv
-  ...         except sqlite3.Error:
+  ...             c = resource.cursor()
+  ...             c.execute('SELECT 1')
+  ...             rv = (1,) in c.fetchall()
+  ...             c.close()
+  ...             return rv
+  ...         except MySQLdb.OperationalError:
   ...             return False
-  >>> pool = SQLitePool(factory=sqlite3.connect, database='ricks_lab')
+  ...     def normalize_resource(self, resource):
+  ...         # For example purposes, but not necessary.
+  ...         pass
+  >>> pool = MySQLPool(factory=MySQLdb.connect, db='ricks_lab', passwd='aGreatPassword')
 
 Let's break this down line by line.
 
-First, the ``sqlite3`` module is imported. ``sqlite3.connect`` will be the
+First, the ``MySQLdb`` module is imported. ``MySQLdb.connect`` will be the
 underlying resource factory.
 
-``CuttlePool`` is imported and subclassed. The ``normalize_resource()``
-method takes a resource, in this case a ``sqlite3.Connection`` instance created
-by ``sqlite3.connect``, as a parameter and changes it's properties. This is
+``CuttlePool`` is imported and subclassed. The ``ping()`` method is implemented,
+which also takes a resource, the same as ``normalize_resource()``, as a
+parameter. ``ping()`` ensures the resource is functional; in this case, it checks
+that the ``MySQLdb.Connection`` instance is open. If the resource is functional,
+``ping()`` returns ``True`` else it returns ``False``. In the above example, a
+simple statement is executed and if the expected result is returned, it means
+the resource is open and ``True`` is returned. The implementation of this method
+is really dependent on the resource created by the pool and may not even be
+necessary.
+
+There is an additional method, ``normalize_resource()``, that can be implemented.
+It takes a resource, in this case a ``MySQLdb.Connection`` instance created
+by ``MySQLdb.connect``, as a parameter and changes it's properties. This can be
 important because a resource can be modified while it's outside of the pool and
 any modifications made during that time will persist; this can have unintended
-consequences when the resource is later retrieved from the pool.
+consequences when the resource is later retrieved from the pool. Essentially,
+``normalize_connection()`` allows the resource to be set to an expected state
+before it is released from the pool for use. Here it does nothing (and in this
+case, it's not necessary to define the method), but it's shown for example
+purposes.
 
-Next the ``ping()`` method is implemented, which also takes a resource, the
-same as ``normalize_resource()``, as a parameter. ``ping()`` ensures the
-resource is functional; in this case, it checks that the ``sqlite3.Connection``
-instance is open. If the resource is functional, ``ping()`` returns ``True``
-else it returns ``False``. In the above example, a simple statement is executed
-and if the expected result is returned, it means the resource is open and
-``True`` is returned. The implementation of this method is really dependent on
-the resource created by the pool and may not even be necessary.
+Finally an instance of ``MySQLPool`` is made. The ``MySQLdb.connect`` method is
+passed to the instance along with the database name and password.
 
-Finally an instance of ``SQLitePool`` is made. The ``sqlite3.connect`` method is
-passed to the instance along with the database name.
-
-The ``CuttlePool`` object and as a result the ``SQLitePool`` object accepts any
+The ``CuttlePool`` object and as a result the ``MySQLPool`` object accepts any
 parameters that the underlying resource factory accepts as keyword arguments.
 There are three other parameters the pool object accepts that are unrelated to
 the resource factory. ``capacity`` sets the max number of resources the pool
@@ -82,7 +91,7 @@ is depleted when a request for a resource is made.
 
 A resource from the pool can be treated the same way as an instance created by
 the resource factory passed to the pool. In our example a resource can be used
-just like a ``sqlite3.Connection`` instance. ::
+just like a ``MySQLdb.Connection`` instance. ::
 
   >>> con = pool.get_resource()
   >>> cur = con.cursor()
