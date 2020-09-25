@@ -137,6 +137,15 @@ How do I install it?
 
 ``pip install cuttlepool``
 
+How do I use ``cuttlepool`` with sqlite3?
+-----------------------------------------
+
+Don't.
+
+SQLite does not play nice with multiple connections and threads. If you need to
+make concurrent writes to a database from multiple connections, consider using a
+database with a dedicated server like MySQL, PostgreSQL, etc.
+
 Contributing
 ------------
 
