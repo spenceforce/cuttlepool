@@ -28,8 +28,8 @@ Resource queuing
 How-to Guide
 ============
 
-Using CuttlePool requires subclassing a ``CuttlePool`` object with a user
-defined method ``normalize_resource()`` and ``ping()``. The example below uses
+Using CuttlePool requires subclassing a ``CuttlePool`` object with optional user
+defined methods ``normalize_resource()`` and ``ping()``. The example below uses
 ``mysqlclient`` connections as a resource, but CuttlePool is not limited to
 connection drivers. ::
 
@@ -56,7 +56,7 @@ First, the ``MySQLdb`` module is imported. ``MySQLdb.connect`` will be the
 underlying resource factory.
 
 ``CuttlePool`` is imported and subclassed. The ``ping()`` method is implemented,
-which also takes a resource, the same as ``normalize_resource()``, as a
+which also takes a resource as a
 parameter. ``ping()`` ensures the resource is functional; in this case, it checks
 that the ``MySQLdb.Connection`` instance is open. If the resource is functional,
 ``ping()`` returns ``True`` else it returns ``False``. In the above example, a
@@ -71,7 +71,7 @@ by ``MySQLdb.connect``, as a parameter and changes it's properties. This can be
 important because a resource can be modified while it's outside of the pool and
 any modifications made during that time will persist; this can have unintended
 consequences when the resource is later retrieved from the pool. Essentially,
-``normalize_connection()`` allows the resource to be set to an expected state
+``normalize_resource()`` allows the resource to be set to an expected state
 before it is released from the pool for use. Here it does nothing (and in this
 case, it's not necessary to define the method), but it's shown for example
 purposes.
