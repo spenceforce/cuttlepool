@@ -1,4 +1,12 @@
 ##########
+DEPRECATED
+##########
+
+I don't have the time or desire to continue maintaining this project.
+
+If somebody wants to maintain this project and continue publishing to PyPI, please reach out and I will relinquish the name ``cuttlepool`` on PyPI if you want it.
+
+##########
 CuttlePool
 ##########
 
